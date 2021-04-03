@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sb
 
 
-im = sinograms.Scan("sample2.png")
+im = sinograms.Scan("sample1.png")
 sinogram = im.generateSinogram()
 sinograms.showSinogram(sinogram)
 sinogram_reconstruction.fourierReconstruction(sinogram)
