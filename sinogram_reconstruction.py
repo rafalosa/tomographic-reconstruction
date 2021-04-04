@@ -15,7 +15,7 @@ def rotate(vector,angle:float):
 def fourierReconstruction(sinogram_data): # t, angle, data
 
     # This reconstruction exploits the mathematical similarity of the definition of projection to 2D Fourier transform.
-    value_boundries = 60
+    value_boundries = 100
     fft_sinogram = scipy.fft.fftshift(scipy.fft(scipy.fft.ifftshift(sinogram_data,axes=1)),axes=1)
     fourier_size = fft_sinogram.shape[0]
     plt.imshow(np.imag(fft_sinogram), vmin=-value_boundries, vmax=value_boundries,cmap='hsv')
@@ -48,7 +48,7 @@ def fourierReconstruction(sinogram_data): # t, angle, data
 
     fig3,ax3 = plt.subplots()
     rotated_recon = ndimage.rotate(np.abs(reconstruction), 180)
-    ax3.imshow(rotated_recon,vmin=0.0,vmax=1.0,cmap='gray')
+    ax3.imshow(rotated_recon,vmin=0.0,vmax=0.6,cmap='gray')
 
     plt.show()
 
