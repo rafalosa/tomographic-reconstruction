@@ -6,13 +6,8 @@ import numpy as np
 
 if __name__ == '__main__':
 
-    im = sinograms.Scan("sample2.png")
+    im = sinograms.Scan("images/censor.png")
     sinogram = im.generateSinogram()
-    sinograms.showSinogram(sinogram)
+    _ = sinograms.showSinogram(sinogram)
     sinogram_reconstruction.fourierReconstruction(sinogram)
-
-
-    #fig,ax = plt.subplots()
-    #sb.heatmap(trans[:,:,3])
-
     plt.show()

@@ -22,7 +22,6 @@ def transformReferenceFramePoint(t:float,s:float,angle:float,x_offset:float,y_of
 def showSinogram(sinogram_data):
     fig, ax = plt.subplots()
     ax = sns.heatmap(sinogram_data, cmap=cm.gray)
-    plt.show()
     return fig,ax
 
 
