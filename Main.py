@@ -5,11 +5,11 @@ import matplotlib.image as mpimg
 
 if __name__ == '__main__':
 
-    img_path = "images/sample1.png"
+    img_path = "images/sample5.png"
     image = mpimg.imread(img_path)
     scan_obj = sinograms.Scan()
-    scan_obj.loadImage(img_path)
-    scan_obj.generateSinogram(101,100)
+    scan_obj.loadSinogram(img_path)
+    #scan_obj.generateSinogram(101,100)
     fourier,recon = scan_obj.fourierReconstruction()
 
     fig,axs = plt.subplots(2,2)

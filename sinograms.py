@@ -67,6 +67,7 @@ class Scan:
         self.height = None
 
     def generateSinogram(self,resolution:int,path_resolution:int,processes:int = 0):
+        # todo: add fan beam sinogram generation
 
         '''This function generates a sinogram for a given image. Parameters (resolution,path_resolution,processes)
         resolution determines how many Xray beams are used to generate the sinogram as well as how many angular
@@ -113,7 +114,7 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def loadSinogram(self,path:str):
+    def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it
         sinogram = mpimg.imread(path)
         sinogram_sum = np.sum(sinogram,axis=2)
         self.sinogram = sinogram_sum
