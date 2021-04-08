@@ -8,6 +8,7 @@ import scipy
 import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
+import matplotlib.pyplot as plt
 
 """
 Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20Francesco,%20Fourier.pdf - English
@@ -16,12 +17,19 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 """
 
 
-def transformReferenceFramePoint(t:float,s:float,angle:float,x_offset:float,y_offset:float) -> tuple:
+def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float) -> tuple:
     '''Function that transforms points between the patient's reference frame and detector's reference frame,
     transformation consists of translation, rotation and back translation'''
 
+    """The patient's reference frame is stationary, detector's reference frame
+    rotates around the (0,0,0) point. Due to the way that matplotlib loads images (the image loads
+    in the 1st quadrant of the coordinate system), translation transformation is first required before
+    rotating the reference frame"""
+
     x = (t-x_offset)*np.cos(angle) - (s-y_offset)*np.sin(angle)
     y = (t-x_offset)*np.sin(angle) + (s-y_offset)*np.cos(angle)
+    print('Initial:',t,s)
+    print('Processed: -',x,y)
 
     return x+x_offset,y+y_offset
 
@@ -43,7 +51,7 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
                                                 height / 2)  # Transforming between reference frames
 
             if int(np.floor(x)) - 1 >= width or int(np.floor(y)) - 1 >= height \
-                    or int(np.floor(x)) - 1 < 0 or int(np.floor(y)) - 1 < 0:
+                    or int(np.floor(x)) - 1 < 0 or int(np.floor(y)) - 1 < 0:  # Mapping coordinates to pixel value
 
                 integral += 0
 
@@ -67,7 +75,6 @@ class Scan:
         self.height = None
 
     def generateSinogram(self,resolution:int,path_resolution:int,processes:int = 0):
-        # todo: add fan beam sinogram generation
 
         '''This function generates a sinogram for a given image. Parameters (resolution,path_resolution,processes)
         resolution determines how many Xray beams are used to generate the sinogram as well as how many angular
@@ -75,11 +82,6 @@ class Scan:
         of generating a sinogram for a given Xray. The bigger the values the more detailed sinogram will be generated
         and the longer the computation time. processes dictates how many processes can be used to generate the sinogram.
         If not specified, all but 2 CPU threads will remain unused by this process.'''
-
-        """The patient's reference frame is stationary, detector's reference frame
-        rotates around the (0,0,0) point. Due to the way that matplotlib loads images (the image loads
-        in the 1st quadrant of the coordinate system), translation transformation is first required before
-        rotating the reference frame"""
 
         # Generating a sinogram can obviously be done better and quicker, this implementation represents the real
         # measurement process and is pretty slow.
@@ -114,6 +116,42 @@ class Scan:
 
         self.sinogram = sinogram
 
+    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle:float):
+        # Probably implement this method to generateSinogram with an additional bool parameter
+        # todo: liomit rays to a specific radius, base the t parameter step based on division of this radius
+
+        angles = np.linspace(np.pi/2 - cone_angle/360 * np.pi,np.pi/2 + cone_angle/360 * np.pi,resolution)
+        lines_t = np.linspace(-self.width/2, self.width/2, resolution)
+        sinogram_rows = []
+        xray_source_initial = (0, -self.height / 2 / np.tan(cone_angle * np.pi / 360))
+        xray_linear_coeffs = np.array([np.tan(ang) for ang in angles])
+        rays = [lines_t * coeff + xray_source_initial[1] for coeff in xray_linear_coeffs]
+        for angle in angles:
+
+            xray_source_coords = rotate(np.array(xray_source_initial),angle)
+            sinogram_row = np.zeros([len(xray_linear_coeffs),1])
+            integral = 0
+
+            for ray_index,ray in enumerate(rays):
+                for t,s in zip(lines_t,ray):
+                    x,y = transformReferenceFramePoint(t,s,angle,xray_source_initial[0], xray_source_initial[1])
+                    x += xray_source_coords[0] - xray_source_initial[0] + self.width/2
+                    y += xray_source_coords[1] - xray_source_initial[1]
+
+                    if int(np.floor(x)) - 1 >= self.width or int(np.floor(y)) - 1 >= self.height \
+                            or int(np.floor(x)) - 1 < 0 or int(
+                            np.floor(y)) - 1 < 0:  # Mapping coordinates to pixel value
+
+                        integral += 0
+
+                    else:
+                        integral += np.sum(self.image[int(np.floor(x)) - 1, int(np.floor(y)) - 1, 0:2]) / 3
+
+                sinogram_row[ray_index] = integral
+            sinogram_rows.append(sinogram_row)
+        sinogram = np.transpose(np.hstack([row for row in sinogram_rows]))
+        return sinogram
+
     def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it
         sinogram = mpimg.imread(path)
         sinogram_sum = np.sum(sinogram,axis=2)
@@ -121,6 +159,7 @@ class Scan:
 
     def loadImage(self,path:str):
         self.image = mpimg.imread(path)
+        self.width,self.height,_ = self.image.shape
 
     def fourierReconstruction(self) -> tuple:
 
@@ -166,5 +205,8 @@ def rotate(vector:np.ndarray,angle:float) -> np.ndarray:
 
     rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
     return np.dot(rot_matrix,vector)
+
+
+
 
 
