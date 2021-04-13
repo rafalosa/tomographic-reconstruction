@@ -64,9 +64,9 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
 
 def generateDomain(linear_coeff, radius, source_coords,points_num):
 
-    if(linear_coeff > 0):
+    if linear_coeff > 0:
         ang = np.arctan(linear_coeff)
-        start_point = radius * np.cos(np.pi-ang)
+        start_point = -radius * np.cos(ang)
         domain = np.linspace(start_point,source_coords[0],points_num)
         return domain
     else:
@@ -131,41 +131,8 @@ class Scan:
         # Probably implement this method to generateSinogram with an additional bool parameter
         # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
         xray_radius = self.height*np.sqrt(2)
-        xray_samples = 100
+        xray_samples = 5
 
-        angles = np.linspace(np.pi/2 - cone_angle/360 * np.pi,np.pi/2 + cone_angle/360 * np.pi,resolution)
-
-        sinogram_rows = []
-        xray_source_initial = (0, -self.height / 2 / np.tan(cone_angle * np.pi / 360))
-        xray_linear_coeffs = np.array([np.tan(ang) for ang in angles])
-
-        for coeff_ind,angle in enumerate(angles):
-
-            xray_source_coords = rotate(np.array(xray_source_initial),angle)
-            lines_t = [generateDomain(coeff,xray_radius,xray_source_coords,xray_samples) for coeff in xray_linear_coeffs]
-            rays = [t * coeff + xray_source_initial[1] for t,coeff in zip(lines_t,xray_linear_coeffs)]
-            sinogram_row = np.zeros([len(xray_linear_coeffs),1])
-            integral = 0
-
-            for ray_index,ray in enumerate(rays):
-                for t,s in zip(lines_t[ray_index],ray):
-                    x,y = transformReferenceFramePoint(t,s,angle,xray_source_initial[0], xray_source_initial[1])
-                    x += xray_source_coords[0] - xray_source_initial[0] + self.width/2
-                    y += xray_source_coords[1] - xray_source_initial[1]
-
-                    if int(np.floor(x)) - 1 >= self.width or int(np.floor(y)) - 1 >= self.height \
-                            or int(np.floor(x)) - 1 < 0 or int(
-                            np.floor(y)) - 1 < 0:  # Mapping coordinates to pixel value
-
-                        integral += 0
-
-                    else:
-                        integral += np.sum(self.image[int(np.floor(x)) - 1, int(np.floor(y)) - 1, 0:2]) / 3
-
-                sinogram_row[ray_index] = integral
-            sinogram_rows.append(sinogram_row)
-        sinogram = np.transpose(np.hstack([row for row in sinogram_rows]))
-        return sinogram
 
     def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it
         sinogram = mpimg.imread(path)
