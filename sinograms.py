@@ -17,7 +17,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 """
 
 
-def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float) -> tuple:
+def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,back_translation:bool = True) -> tuple:
     '''Function that transforms points between the patient's reference frame and detector's reference frame,
     transformation consists of translation, rotation and back translation'''
 
@@ -29,7 +29,10 @@ def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float) 
     x = (t-x_offset)*np.cos(angle) - (s-y_offset)*np.sin(angle)
     y = (t-x_offset)*np.sin(angle) + (s-y_offset)*np.cos(angle)
 
-    return x+x_offset,y+y_offset
+    if back_translation:
+        return x+x_offset,y+y_offset
+    else:
+        return x,y
 
 
 def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:tuple,
@@ -62,19 +65,16 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
 
     return sinogram_row
 
-def generateDomain(linear_coeff, radius, source_coords,points_num):
+def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int):
 
-    if linear_coeff > 0:
-        ang = np.arctan(linear_coeff)
-        start_point = -radius * np.cos(ang)
+    if angle < np.pi/2:
+        start_point = -radius * np.cos(angle)
         domain = np.linspace(start_point,source_coords[0],points_num)
         return domain
     else:
-        ang = np.arctan(linear_coeff)
-        end_point = radius * np.cos(np.pi - ang)
+        end_point = radius * np.cos(np.pi - angle)
         domain = np.linspace(source_coords[0],end_point, points_num)
         return domain
-
 
 class Scan:
 
@@ -132,6 +132,14 @@ class Scan:
         # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
         xray_radius = self.height*np.sqrt(2)
         xray_samples = 5
+
+        xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
+        angles = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
+        plt.imshow(self.image)
+        plt.show()
+        return 0
+
+
 
 
     def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it

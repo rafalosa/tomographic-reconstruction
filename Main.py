@@ -13,8 +13,8 @@ if __name__ == '__main__':
     #scan_obj.generateSinogram(201,200)
     #fourier,recon = scan_obj.fourierReconstruction()
     sngrm = scan_obj.fanBeamSinogram(11,20,60)
-    plt.imshow(sngrm)
-    plt.show()
+    #plt.imshow(sngrm)
+    #plt.show()
 """ 
     fig,axs = plt.subplots(2,2)
     axs[0,0].imshow(image)
