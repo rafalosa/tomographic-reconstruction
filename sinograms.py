@@ -28,8 +28,6 @@ def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float) 
 
     x = (t-x_offset)*np.cos(angle) - (s-y_offset)*np.sin(angle)
     y = (t-x_offset)*np.sin(angle) + (s-y_offset)*np.cos(angle)
-    print('Initial:',t,s)
-    print('Processed: -',x,y)
 
     return x+x_offset,y+y_offset
 
@@ -63,6 +61,19 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
     image_mem.close()
 
     return sinogram_row
+
+def generateDomain(linear_coeff, radius, source_coords,points_num):
+
+    if(linear_coeff > 0):
+        ang = np.arctan(linear_coeff)
+        start_point = radius * np.cos(np.pi-ang)
+        domain = np.linspace(start_point,source_coords[0],points_num)
+        return domain
+    else:
+        ang = np.arctan(linear_coeff)
+        end_point = radius * np.cos(np.pi - ang)
+        domain = np.linspace(source_coords[0],end_point, points_num)
+        return domain
 
 
 class Scan:
@@ -118,22 +129,26 @@ class Scan:
 
     def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle:float):
         # Probably implement this method to generateSinogram with an additional bool parameter
-        # todo: liomit rays to a specific radius, base the t parameter step based on division of this radius
+        # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
+        xray_radius = self.height*np.sqrt(2)
+        xray_samples = 100
 
         angles = np.linspace(np.pi/2 - cone_angle/360 * np.pi,np.pi/2 + cone_angle/360 * np.pi,resolution)
-        lines_t = np.linspace(-self.width/2, self.width/2, resolution)
+
         sinogram_rows = []
         xray_source_initial = (0, -self.height / 2 / np.tan(cone_angle * np.pi / 360))
         xray_linear_coeffs = np.array([np.tan(ang) for ang in angles])
-        rays = [lines_t * coeff + xray_source_initial[1] for coeff in xray_linear_coeffs]
-        for angle in angles:
+
+        for coeff_ind,angle in enumerate(angles):
 
             xray_source_coords = rotate(np.array(xray_source_initial),angle)
+            lines_t = [generateDomain(coeff,xray_radius,xray_source_coords,xray_samples) for coeff in xray_linear_coeffs]
+            rays = [t * coeff + xray_source_initial[1] for t,coeff in zip(lines_t,xray_linear_coeffs)]
             sinogram_row = np.zeros([len(xray_linear_coeffs),1])
             integral = 0
 
             for ray_index,ray in enumerate(rays):
-                for t,s in zip(lines_t,ray):
+                for t,s in zip(lines_t[ray_index],ray):
                     x,y = transformReferenceFramePoint(t,s,angle,xray_source_initial[0], xray_source_initial[1])
                     x += xray_source_coords[0] - xray_source_initial[0] + self.width/2
                     y += xray_source_coords[1] - xray_source_initial[1]
