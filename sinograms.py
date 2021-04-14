@@ -77,6 +77,7 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
 
     return sinogram_row
 
+
 def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resolution:int,
                        cone_angle:float, radius:float, image_shape:tuple,
                        dtype:type,memory_block_name:str,frame_angle:float):
@@ -156,7 +157,8 @@ class Scan:
 
         number_of_rays = resolution  # How many X-ray beams/detector cells
         angle_resolution = resolution  # Angular step
-        angles = np.linspace(np.pi / 2, np.pi * 3 / 2, angle_resolution + 1)
+        #angles = np.linspace(np.pi / 2, np.pi * 3 / 2, angle_resolution + 1)
+        angles = np.linspace(np.pi/2,np.pi*3/2,angle_resolution+1)
         image_memory_shared = sm.SharedMemory(create=True,size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape,dtype=self.image.dtype,buffer=image_memory_shared.buf)
         image_shared_copy[:,:,:] = self.image[:,:,:]
@@ -167,6 +169,7 @@ class Scan:
             CPU_S = mp.cpu_count() - 2
 
         pool = Pool(processes=CPU_S)
+
         function = partial(evaluateForParallelRays,number_of_rays+1,path_resolution+1,
                            self.image.shape,self.image.dtype,image_memory_shared.name)
 
@@ -196,15 +199,9 @@ class Scan:
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
         reference_frame_angles = np.linspace(0,np.pi,resolution)
         # Angles for rotating the source-detector reference frame
-        domains = []
-        rays = []
-        rows = []
         image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)
         image_shared_copy[:, :, :] = self.image[:, :, :]
-
-# (initial_source_position, resolution, path_resolution,
-        #                        cone_angle, radius, image_shape:tuple, dtype:type,memory_block_name:str, frame_angle):
 
         if processes:
             CPU_S = processes
