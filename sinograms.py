@@ -17,7 +17,8 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 """
 
 
-def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,back_translation:bool = True) -> tuple:
+def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
+                                 back_translation:bool = True) -> tuple:
     '''Function that transforms points between the patient's reference frame and detector's reference frame,
     transformation consists of translation, rotation and back translation'''
 
@@ -67,7 +68,7 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
 
 def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int):
 
-    if angle < np.pi/2:
+    if angle <= np.pi/2:
         start_point = -radius * np.cos(angle)
         domain = np.linspace(start_point,source_coords[0],points_num)
         return domain
@@ -127,16 +128,28 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle:float):
+    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float):
         # Probably implement this method to generateSinogram with an additional bool parameter
         # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
         xray_radius = self.height*np.sqrt(2)
         xray_samples = 5
+        cone_angle = np.deg2rad(cone_angle_deg)
 
         xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
-        angles = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
+        angles_rays = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
+        reference_frame_angles = np.linsapce(0,np.pi,resolution)
         plt.imshow(self.image)
+
+
+        for ref_angle in reference_frame_angles:
+
+            for ray_ang in angles_rays:
+                domain = generateDomain(ray_ang,xray_radius,xray_source_initial_position,xray_samples)
+                ray = np.tan(ray_ang)*domain + xray_source_initial_position[1]
+                plt.plot(domain,ray)
+
         plt.show()
+
         return 0
 
 
