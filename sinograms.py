@@ -16,6 +16,12 @@ Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20France
 http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - Polish
 
 """
+# todo: Implement fan beam sinogram reconstruction
+# todo: Implement other reconstruction techniques BP,FBP,iterative, algebraic
+# todo: Check for correct sinogram orientation in loadSinogram
+# todo: Crop/pad loaded image so it is square
+# todo: Apply multiprocessing to fanBeamSinogram
+# todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter
 
 
 def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
@@ -82,7 +88,6 @@ def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int
 
 class Scan:
 
-    # todo: The image should be square, so crop/pad the loaded image if it isn't square
     def __init__(self):
         self.image = None
         self.sinogram = None
@@ -133,14 +138,14 @@ class Scan:
 
     def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float):
         # Probably implement this method to generateSinogram with an additional bool parameter
-        # todo: implement multiprocessing
 
         cone_angle = np.deg2rad(cone_angle_deg)
 
         xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
-        angles_rays = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
-        reference_frame_angles = np.linspace(0,np.pi,resolution)
+        angles_rays = np.linspace((np.pi-cone_angle)/2,
+                                  np.pi-(np.pi-cone_angle)/2,resolution)  # Angles for each xray in initial position
+        reference_frame_angles = np.linspace(0,np.pi,resolution)  # Angles for
         domains = []
         rays = []
         rows = []
@@ -164,7 +169,6 @@ class Scan:
                 for t,s in zip(T,S):
                     if int(np.floor(t)) - 1 >= self.width or int(np.floor(s)) - 1 >= self.height \
                             or int(np.floor(t)) - 1 < 0 or int(np.floor(s)) - 1 < 0:
-                        # Mapping coordinates to pixel value
 
                         integral += 0
 
@@ -174,9 +178,9 @@ class Scan:
                 sinogram_row[row_index] = integral
                 rows.append(sinogram_row[row_index])
 
-        self.sinogram = np.transpose(np.reshape(rows,(resolution,resolution)))
+        self.sinogram = np.reshape(rows,(resolution,resolution))
 
-    def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it
+    def loadSinogram(self,path:str):
         sinogram = mpimg.imread(path)
         sinogram_sum = np.sum(sinogram,axis=2)
         self.sinogram = sinogram_sum
