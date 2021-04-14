@@ -9,7 +9,7 @@ import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
 import matplotlib.pyplot as plt
-from typing import Union
+from typing import Union,Tuple
 
 """
 Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20Francesco,%20Fourier.pdf - English
@@ -25,7 +25,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 
 def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
-                                 back_translation:bool = True) -> tuple:
+                                 back_translation:bool = True) -> Tuple[float,float]:
     '''Function that transforms points between the patient's reference frame and detector's reference frame,
     transformation consists of translation, rotation and back translation'''
 
@@ -44,7 +44,7 @@ def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
 
 
 def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:tuple,
-                                 dtype:type,memory_block_name:str,angle:float):
+                                 dtype:type,memory_block_name:str,angle:float) -> np.ndarray:
 
     width, height, _ = image_shape
     lines_t = np.linspace(0, width, lines_t_size)
@@ -74,7 +74,7 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
     return sinogram_row
 
 
-def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int):
+def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int) -> np.ndarray:
 
     if angle <= np.pi/2:
         start_point = -radius * np.cos(angle)
@@ -94,7 +94,7 @@ class Scan:
         self.width = None
         self.height = None
 
-    def generateSinogram(self,resolution:int,path_resolution:int,processes:int = 0):
+    def generateSinogram(self,resolution:int,path_resolution:int,processes:int = 0) -> None:
 
         '''This function generates a sinogram for a given image. Parameters (resolution,path_resolution,processes)
         resolution determines how many Xray beams are used to generate the sinogram as well as how many angular
@@ -136,8 +136,14 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float):
+    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float) -> None:
         # Probably implement this method to generateSinogram with an additional bool parameter
+
+        if cone_angle_deg >= 180 or cone_angle_deg <= 0:
+            raise AttributeError("The angle of the fan beam must be between 0 and 180 degrees.")
+
+        if self.image is None:
+            raise RuntimeError("Image required before generating a sinogram")
 
         cone_angle = np.deg2rad(cone_angle_deg)
 
@@ -150,12 +156,12 @@ class Scan:
         rays = []
         rows = []
 
-        for ray_ang in angles_rays:
+        for ray_ang in angles_rays:  # Generating initial coordinates for each xray
             domain = generateDomain(ray_ang, xray_radius, xray_source_initial_position, path_resolution)
             domains.append(domain)
             rays.append(np.tan(ray_ang) * domain + xray_source_initial_position[1])
 
-        for ref_angle in reference_frame_angles:
+        for ref_angle in reference_frame_angles:  # Rotating source-detector reference frame
 
             xray_source_position = rotate(xray_source_initial_position,ref_angle)
             sinogram_row = np.zeros([resolution, 1])
@@ -180,16 +186,16 @@ class Scan:
 
         self.sinogram = np.reshape(rows,(resolution,resolution))
 
-    def loadSinogram(self,path:str):
+    def loadSinogram(self,path:str) -> None:
         sinogram = mpimg.imread(path)
         sinogram_sum = np.sum(sinogram,axis=2)
         self.sinogram = sinogram_sum
 
-    def loadImage(self,path:str):
+    def loadImage(self,path:str) -> None:
         self.image = mpimg.imread(path)
         self.width,self.height,_ = self.image.shape
 
-    def fourierReconstruction(self) -> tuple:
+    def fourierReconstruction(self) -> Tuple[np.ndarray,np.ndarray]:
 
         # This reconstruction exploits the mathematical similarity of the definition of projection to 2D Fourier
         # transform of absorption coefficient.
@@ -219,7 +225,7 @@ class Scan:
 
         interpolated_radial_fft = scipy.interpolate.griddata((x_data, y_data), fft_sinogram.flatten(), (X, Y),
                                                              fill_value=0.0, method='cubic').reshape(
-            (fourier_size, fourier_size))
+                                                            (fourier_size, fourier_size))
 
         reconstruction = scipy.fft.fftshift(scipy.fft.ifft2(scipy.fft.ifftshift(interpolated_radial_fft)))
 
@@ -233,8 +239,3 @@ def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
 
     rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
     return np.dot(rot_matrix,vector)
-
-
-
-
-
