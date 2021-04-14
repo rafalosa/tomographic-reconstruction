@@ -15,13 +15,11 @@ Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20France
 http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - Polish
 
 """
-# todo: Implement fan beam sinogram reconstruction
-# todo: Implement other reconstruction techniques BP,FBP,iterative, algebraic
-# todo: Check for correct sinogram orientation in loadSinogram
-# todo: Crop/pad loaded image so it is square
-# todo: Apply multiprocessing to fanBeamSinogram
-# todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter
-
+# todo: Implement other reconstruction techniques BP,FBP,iterative, algebraic.
+# todo: Check for correct sinogram orientation in loadSinogram.
+# todo: Crop/pad loaded image so it is square.
+# todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter.
+# todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
 
 def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
@@ -79,8 +77,9 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
 
     return sinogram_row
 
-def evaluateForFanRays(initial_source_position, resolution, path_resolution,
-                       cone_angle, radius, image_shape:tuple, dtype:type,memory_block_name:str,frame_angle):
+def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resolution:int,
+                       cone_angle:float, radius:float, image_shape:tuple,
+                       dtype:type,memory_block_name:str,frame_angle:float):
 
     image_mem = sm.SharedMemory(name=memory_block_name)
     image = np.ndarray(shape=image_shape, dtype=dtype, buffer=image_mem.buf)
