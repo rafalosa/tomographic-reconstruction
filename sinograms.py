@@ -8,7 +8,6 @@ import scipy
 import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
-import matplotlib.pyplot as plt
 from typing import Union,Tuple
 
 """
@@ -22,6 +21,13 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 # todo: Crop/pad loaded image so it is square
 # todo: Apply multiprocessing to fanBeamSinogram
 # todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter
+
+
+def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
+    '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
+
+    rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
+    return np.dot(rot_matrix,vector)
 
 
 def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
@@ -233,9 +239,3 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
-
-def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
-    '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
-
-    rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
-    return np.dot(rot_matrix,vector)
