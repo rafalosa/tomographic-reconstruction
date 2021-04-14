@@ -49,7 +49,7 @@ def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
         return x,y
 
 
-def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:tuple,
+def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple,
                                  dtype:type,memory_block_name:str,angle:float) -> np.ndarray:
 
     width, height, _ = image_shape
@@ -74,6 +74,46 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
                 integral += np.sum(image[int(np.floor(x)) - 1, int(np.floor(y)) - 1, 0:2]) / 3
 
         sinogram_row[t_index] = integral
+
+    image_mem.close()
+
+    return sinogram_row
+
+def evaluateForFanRays(initial_source_position, resolution, path_resolution,
+                       cone_angle, radius, image_shape:tuple, dtype:type,memory_block_name:str,frame_angle):
+
+    image_mem = sm.SharedMemory(name=memory_block_name)
+    image = np.ndarray(shape=image_shape, dtype=dtype, buffer=image_mem.buf)
+    width,height,_ = image_shape
+    sinogram_row = np.zeros([resolution, 1])
+
+    angles_rays = np.linspace((np.pi - cone_angle) / 2,
+                              np.pi - (np.pi - cone_angle) / 2, resolution)  # Angles for each xray in initial position
+
+    domains = []
+    rays = []
+    xray_source_position = rotate(initial_source_position, frame_angle)
+
+    for row_index,ray_ang in enumerate(angles_rays):  # Generating initial coordinates for each xray
+        domain = generateDomain(ray_ang, radius, initial_source_position, path_resolution)
+        ray = np.tan(ray_ang) * domain + initial_source_position[1]
+
+        T, S = transformReferenceFramePoint(domain, ray, frame_angle, 0,
+                                            initial_source_position[1] + height / 2,
+                                            back_translation=False)
+        T += xray_source_position[0] + width / 2
+        S += xray_source_position[1] + height / 2
+        integral = 0
+        for t, s in zip(T, S):
+            if int(np.floor(t)) - 1 >= width or int(np.floor(s)) - 1 >= height \
+                    or int(np.floor(t)) - 1 < 0 or int(np.floor(s)) - 1 < 0:
+
+                integral += 0
+
+            else:
+                integral += np.sum(image[int(np.floor(t)) - 1, int(np.floor(s)) - 1, 0:2]) / 3
+
+        sinogram_row[row_index] = integral
 
     image_mem.close()
 
@@ -128,7 +168,7 @@ class Scan:
             CPU_S = mp.cpu_count() - 2
 
         pool = Pool(processes=CPU_S)
-        function = partial(calculateForDetectorPosition,number_of_rays+1,path_resolution+1,
+        function = partial(evaluateForParallelRays,number_of_rays+1,path_resolution+1,
                            self.image.shape,self.image.dtype,image_memory_shared.name)
 
         results = pool.imap(function,(ang for ang in angles))
@@ -142,7 +182,7 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float) -> None:
+    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float,processes:int = 0) -> None:
         # Probably implement this method to generateSinogram with an additional bool parameter
 
         if cone_angle_deg >= 180 or cone_angle_deg <= 0:
@@ -155,42 +195,38 @@ class Scan:
 
         xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
-        angles_rays = np.linspace((np.pi-cone_angle)/2,
-                                  np.pi-(np.pi-cone_angle)/2,resolution)  # Angles for each xray in initial position
-        reference_frame_angles = np.linspace(0,np.pi,resolution)  # Angles for
+        reference_frame_angles = np.linspace(0,np.pi,resolution)
+        # Angles for rotating the source-detector reference frame
         domains = []
         rays = []
         rows = []
+        image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
+        image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)
+        image_shared_copy[:, :, :] = self.image[:, :, :]
 
-        for ray_ang in angles_rays:  # Generating initial coordinates for each xray
-            domain = generateDomain(ray_ang, xray_radius, xray_source_initial_position, path_resolution)
-            domains.append(domain)
-            rays.append(np.tan(ray_ang) * domain + xray_source_initial_position[1])
+# (initial_source_position, resolution, path_resolution,
+        #                        cone_angle, radius, image_shape:tuple, dtype:type,memory_block_name:str, frame_angle):
 
-        for ref_angle in reference_frame_angles:  # Rotating source-detector reference frame
+        if processes:
+            CPU_S = processes
+        else:
+            CPU_S = mp.cpu_count() - 2
 
-            xray_source_position = rotate(xray_source_initial_position,ref_angle)
-            sinogram_row = np.zeros([resolution, 1])
+        pool = Pool(processes=CPU_S)
+        function = partial(evaluateForFanRays,xray_source_initial_position,resolution,
+                           path_resolution,cone_angle,xray_radius,self.image.shape,
+                           self.image.dtype,image_memory_shared.name)
 
-            for row_index,(domain,ray) in enumerate(zip(domains,rays)):
-                T,S = transformReferenceFramePoint(domain,ray,ref_angle,0,
-                                                   xray_source_initial_position[1]+self.height/2,back_translation=False)
-                T += xray_source_position[0] + self.width/2
-                S += xray_source_position[1] + self.height/2
-                integral = 0
-                for t,s in zip(T,S):
-                    if int(np.floor(t)) - 1 >= self.width or int(np.floor(s)) - 1 >= self.height \
-                            or int(np.floor(t)) - 1 < 0 or int(np.floor(s)) - 1 < 0:
+        results = pool.imap(function, (ang for ang in reference_frame_angles))
+        pool.close()
+        pool.join()
 
-                        integral += 0
+        sinogram = np.transpose(np.hstack([row for row in results]))
 
-                    else:
-                        integral += np.sum(self.image[int(np.floor(t)) - 1, int(np.floor(s)) - 1, 0:2]) / 3
+        image_memory_shared.close()
+        image_memory_shared.unlink()
 
-                sinogram_row[row_index] = integral
-                rows.append(sinogram_row[row_index])
-
-        self.sinogram = np.reshape(rows,(resolution,resolution))
+        self.sinogram = sinogram
 
     def loadSinogram(self,path:str) -> None:
         sinogram = mpimg.imread(path)
