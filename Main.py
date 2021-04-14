@@ -12,9 +12,10 @@ if __name__ == '__main__':
     #scan_obj.loadSinogram(img_path)
     #scan_obj.generateSinogram(201,200)
     #fourier,recon = scan_obj.fourierReconstruction()
-    sngrm = scan_obj.fanBeamSinogram(21,20,60)
+    scan_obj.fanBeamSinogram(201,100,90)
+    plt.imshow(scan_obj.sinogram,cmap='gray')
     #plt.imshow(sngrm)/2
-    #plt.show()
+    plt.show()
 """ 
     fig,axs = plt.subplots(2,2)
     axs[0,0].imshow(image)

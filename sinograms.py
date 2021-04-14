@@ -67,6 +67,7 @@ def calculateForDetectorPosition(lines_t_size:int, lines_s_size:int,image_shape:
 
     return sinogram_row
 
+
 def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int):
 
     if angle <= np.pi/2:
@@ -77,6 +78,7 @@ def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int
         end_point = radius * np.cos(np.pi - angle)
         domain = np.linspace(source_coords[0],end_point, points_num)
         return domain
+
 
 class Scan:
 
@@ -131,7 +133,7 @@ class Scan:
 
     def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float):
         # Probably implement this method to generateSinogram with an additional bool parameter
-        # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
+        # todo: implement multiprocessing
 
         cone_angle = np.deg2rad(cone_angle_deg)
 
@@ -139,27 +141,40 @@ class Scan:
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
         angles_rays = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
         reference_frame_angles = np.linspace(0,np.pi,resolution)
-        plt.imshow(self.image)
+        domains = []
+        rays = []
+        rows = []
+
+        for ray_ang in angles_rays:
+            domain = generateDomain(ray_ang, xray_radius, xray_source_initial_position, path_resolution)
+            domains.append(domain)
+            rays.append(np.tan(ray_ang) * domain + xray_source_initial_position[1])
 
         for ref_angle in reference_frame_angles:
 
             xray_source_position = rotate(xray_source_initial_position,ref_angle)
+            sinogram_row = np.zeros([resolution, 1])
 
-            for ray_ang in angles_rays:
-                domain = generateDomain(ray_ang,xray_radius,xray_source_initial_position,path_resolution)
-                ray = np.tan(ray_ang)*domain + xray_source_initial_position[1]
-                t,s = transformReferenceFramePoint(domain,ray,ref_angle,0,
+            for row_index,(domain,ray) in enumerate(zip(domains,rays)):
+                T,S = transformReferenceFramePoint(domain,ray,ref_angle,0,
                                                    xray_source_initial_position[1]+self.height/2,back_translation=False)
-                t += xray_source_position[0] + self.width/2
-                s += xray_source_position[1] + self.height/2
-                plt.plot(t,s)
+                T += xray_source_position[0] + self.width/2
+                S += xray_source_position[1] + self.height/2
+                integral = 0
+                for t,s in zip(T,S):
+                    if int(np.floor(t)) - 1 >= self.width or int(np.floor(s)) - 1 >= self.height \
+                            or int(np.floor(t)) - 1 < 0 or int(np.floor(s)) - 1 < 0:
+                        # Mapping coordinates to pixel value
 
-        plt.show()
+                        integral += 0
 
-        return 0
+                    else:
+                        integral += np.sum(self.image[int(np.floor(t)) - 1, int(np.floor(s)) - 1, 0:2]) / 3
 
+                sinogram_row[row_index] = integral
+                rows.append(sinogram_row[row_index])
 
-
+        self.sinogram = np.transpose(np.reshape(rows,(resolution,resolution)))
 
     def loadSinogram(self,path:str): # todo: detect if the sinogram has a correct orientation, if not rotate it
         sinogram = mpimg.imread(path)
