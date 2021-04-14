@@ -12,8 +12,8 @@ if __name__ == '__main__':
     #scan_obj.loadSinogram(img_path)
     #scan_obj.generateSinogram(201,200)
     #fourier,recon = scan_obj.fourierReconstruction()
-    sngrm = scan_obj.fanBeamSinogram(11,20,60)
-    #plt.imshow(sngrm)
+    sngrm = scan_obj.fanBeamSinogram(21,20,60)
+    #plt.imshow(sngrm)/2
     #plt.show()
 """ 
     fig,axs = plt.subplots(2,2)

@@ -9,6 +9,7 @@ import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
 import matplotlib.pyplot as plt
+from typing import Union
 
 """
 Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20Francesco,%20Fourier.pdf - English
@@ -131,22 +132,27 @@ class Scan:
     def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float):
         # Probably implement this method to generateSinogram with an additional bool parameter
         # todo: limit rays to a specific radius, base the t parameter step based on division of this radius
-        xray_radius = self.height*np.sqrt(2)
-        xray_samples = 5
+
         cone_angle = np.deg2rad(cone_angle_deg)
 
         xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
+        xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
         angles_rays = np.linspace((np.pi-cone_angle)/2,np.pi-(np.pi-cone_angle)/2,resolution)
-        reference_frame_angles = np.linsapce(0,np.pi,resolution)
+        reference_frame_angles = np.linspace(0,np.pi,resolution)
         plt.imshow(self.image)
-
 
         for ref_angle in reference_frame_angles:
 
+            xray_source_position = rotate(xray_source_initial_position,ref_angle)
+
             for ray_ang in angles_rays:
-                domain = generateDomain(ray_ang,xray_radius,xray_source_initial_position,xray_samples)
+                domain = generateDomain(ray_ang,xray_radius,xray_source_initial_position,path_resolution)
                 ray = np.tan(ray_ang)*domain + xray_source_initial_position[1]
-                plt.plot(domain,ray)
+                t,s = transformReferenceFramePoint(domain,ray,ref_angle,0,
+                                                   xray_source_initial_position[1]+self.height/2,back_translation=False)
+                t += xray_source_position[0] + self.width/2
+                s += xray_source_position[1] + self.height/2
+                plt.plot(t,s)
 
         plt.show()
 
@@ -203,7 +209,7 @@ class Scan:
         return interpolated_radial_fft, reconstruction
 
 
-def rotate(vector:np.ndarray,angle:float) -> np.ndarray:
+def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
 
     rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
