@@ -86,7 +86,10 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
 def padMatrix(matrix, new_size,pad_color):
 
     new_matrix = np.ones(new_size)*pad_color
-    width, height = matrix.shape
+    if len(matrix) == 2:
+        width, height = matrix.shape
+    else:
+        width,height = (matrix.shape[0],0)
     left_offset = int((new_size[0] - width)/2)
     top_offset = int((new_size[1] - height)/2)
     for ind,row in enumerate(new_matrix[top_offset:top_offset+height]):
@@ -107,8 +110,6 @@ def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resol
     angles_rays = np.linspace((np.pi - cone_angle) / 2,
                               np.pi - (np.pi - cone_angle) / 2, resolution)  # Angles for each xray in initial position
 
-    domains = []
-    rays = []
     xray_source_position = rotate(initial_source_position, frame_angle)
 
     for row_index,ray_ang in enumerate(angles_rays):  # Generating initial coordinates for each xray
@@ -293,11 +294,13 @@ class Scan:
         sample_projection = np.tile(self.sinogram[3],(len(self.sinogram[0]),1))
         reconstruction_size = ndimage.rotate(sample_projection,45).shape
         reconstruction = np.zeros(reconstruction_size)
+        offset = int((reconstruction_size[0] - len(self.sinogram[0]))/2)
         angles = np.linspace(0,180,len(self.sinogram))
         for ang,values in zip(angles,self.sinogram-1):
-            projection = np.tile(values,(len(values),1))
-            reconstruction += padMatrix(ndimage.rotate(projection,ang,
-                                                       cval=min(values)),reconstruction_size,min(values))
+            new_row = np.zeros([reconstruction_size[0]])
+            new_row[offset:offset + len(values)] = values
+            projection = np.tile(new_row/reconstruction_size[0],(len(new_row),1))
+            reconstruction += ndimage.rotate(projection,ang,cval=min(values),reshape=False)
         plt.imshow(reconstruction,cmap='gray')
         plt.show()
 
