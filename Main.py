@@ -5,16 +5,16 @@ import matplotlib.image as mpimg
 
 if __name__ == '__main__':
 
-    img_path = "images/sample10.png"
+    img_path = "images/sample5.png"
     image = mpimg.imread(img_path)
     scan_obj = sinograms.Scan()
-    scan_obj.loadImage(img_path)
+    #scan_obj.loadImage(img_path)
     scan_obj.loadSinogram(img_path)
     #scan_obj.generateSinogram(151,150,6)
     #scan_obj.fanBeamSinogram(301,200,60,4)
-    """scan_obj.generateSinogram(301,200,6)
+    #scan_obj.generateSinogram(301,200,6)
     fourier,recon = scan_obj.fourierReconstruction()
-    fig,axs = plt.subplots(2,2)
+    fig,axs = plt.subplots(2,3)
     axs[0,0].imshow(image)
     axs[0,0].set_title('Original image')
     axs[0,1].imshow(scan_obj.sinogram,cmap='gray')
@@ -22,9 +22,9 @@ if __name__ == '__main__':
     axs[1,0].imshow(np.abs(fourier),cmap='hsv',vmin=-60,vmax=60)
     axs[1, 0].set_title('FFT of the sinogram converted\nto polar coordinates (abs)')
     axs[1,1].imshow(recon,cmap='gray')
-    axs[1, 1].set_title('Reconstructed image')
+    axs[1, 1].set_title('Reconstructed image FR')
+    axs[1, 2].imshow(scan_obj.backProjectionReconstruction(), cmap='gray')
+    axs[1, 2].set_title('Reconstructed image BP')
     fig.tight_layout(pad=1.0)
-  cropCenterMatrix(rot_img,sample_projection.shape)  plt.show()"""
-    plt.imshow(scan_obj.backProjectionReconstruction(),cmap='gray')
     plt.show()
 

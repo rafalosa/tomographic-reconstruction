@@ -18,13 +18,13 @@ Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20France
 http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - Polish
 
 """
-# todo: Implement other reconstruction techniques BP,FBP,iterative, algebraic.
+# todo: Implement other reconstruction techniques: iterative, algebraic.
 # todo: Check for correct sinogram orientation in loadSinogram.
 # todo: Crop/pad loaded image so it is square.
 # todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter.
 # todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
 # todo: Apply filtering to back-projection reconstruction.
-# todo: Deal with cutting off some of the sinogram data while using back-projection reconstruction.
+# todo: Maybe add some multiprocessing to reconstruction techniques.
 
 def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
@@ -83,7 +83,7 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
     return sinogram_row
 
 
-def padMatrix(matrix, new_size,pad_color):
+def padMatrix(matrix:np.ndarray,new_size:Tuple[int,int],pad_color:float):
 
     new_matrix = np.ones(new_size)*pad_color
     if len(matrix) == 2:
@@ -98,7 +98,7 @@ def padMatrix(matrix, new_size,pad_color):
     return new_matrix
 
 
-def cropCenterMatrix(matrix,new_matrix_size):
+def cropCenterMatrix(matrix:np.ndarray,new_matrix_size:Tuple[int,int]):
     width,height = matrix.shape
     left_offset = width//2 - new_matrix_size[0]//2
     top_offset = height//2 - new_matrix_size[1]//2
