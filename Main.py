@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 
 if __name__ == '__main__':
 
-    img_path = "images/sample5.png"
+    img_path = "images/sinograms/sample1.png"
     image = mpimg.imread(img_path)
     scan_obj = sinograms.Scan()
     #scan_obj.loadImage(img_path)
