@@ -9,6 +9,8 @@ import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
 from typing import Union,Tuple
+from numpy import random
+import matplotlib.pyplot as plt
 
 """
 Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20Francesco,%20Fourier.pdf - English
@@ -197,7 +199,7 @@ class Scan:
 
         xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
-        reference_frame_angles = np.linspace(0,np.pi,resolution)
+        reference_frame_angles = np.linspace(np.pi/2,np.pi*3/2,resolution)
         # Angles for rotating the source-detector reference frame
         image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)
@@ -271,3 +273,11 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
+    def backProjectionReconstruction(self):
+        """random.seed(123)
+
+        values = random.uniform(0,20,100)
+        c = np.hstack(values)
+        slice = np.tile(c/len(c),(len(c),1))
+        plt.imshow(slice)
+        plt.show()"""
