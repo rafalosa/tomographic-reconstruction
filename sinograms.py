@@ -98,6 +98,13 @@ def padMatrix(matrix, new_size,pad_color):
     return new_matrix
 
 
+def cropCenterMatrix(matrix,new_matrix_size):
+    width,height = matrix.shape
+    left_offset = width//2 - new_matrix_size[0]//2
+    top_offset = height//2 - new_matrix_size[1]//2
+    return matrix[top_offset:top_offset+new_matrix_size[1],left_offset:left_offset+new_matrix_size[0]]
+
+
 def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resolution:int,
                        cone_angle:float, radius:float, image_shape:tuple,
                        dtype:type,memory_block_name:str,frame_angle:float):
@@ -175,8 +182,7 @@ class Scan:
 
         number_of_rays = resolution  # How many X-ray beams/detector cells
         angle_resolution = resolution  # Angular step
-        #angles = np.linspace(np.pi / 2, np.pi * 3 / 2, angle_resolution + 1)
-        angles = np.linspace(np.pi/2,np.pi*3/2,angle_resolution+1)
+        angles = np.linspace(np.pi / 2, np.pi * 3 / 2, angle_resolution + 1)
         image_memory_shared = sm.SharedMemory(create=True,size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape,dtype=self.image.dtype,buffer=image_memory_shared.buf)
         image_shared_copy[:,:,:] = self.image[:,:,:]
@@ -291,16 +297,18 @@ class Scan:
 
     def backProjectionReconstruction(self):
 
-        sample_projection = np.tile(self.sinogram[3],(len(self.sinogram[0]),1))
+        sample_projection = np.tile(self.sinogram[0],(len(self.sinogram[0]),1))
         reconstruction_size = ndimage.rotate(sample_projection,45).shape
-        reconstruction = np.zeros(reconstruction_size)
-        offset = int((reconstruction_size[0] - len(self.sinogram[0]))/2)
-        angles = np.linspace(0,180,len(self.sinogram))
-        for ang,values in zip(angles,self.sinogram-1):
-            new_row = np.zeros([reconstruction_size[0]])
+        reconstruction = np.zeros(sample_projection.shape)
+        offset = (reconstruction_size[0] - len(self.sinogram[0]))//2
+        angles = np.linspace(0,180,len(self.sinogram-np.amin(self.sinogram)))
+
+        for ang,values in zip(angles,self.sinogram):
+            new_row = np.ones([reconstruction_size[0]])*min(values)
             new_row[offset:offset + len(values)] = values
             projection = np.tile(new_row/reconstruction_size[0],(len(new_row),1))
-            reconstruction += ndimage.rotate(projection,ang,cval=min(values),reshape=False)
-        plt.imshow(reconstruction,cmap='gray')
-        plt.show()
+            rot_img = ndimage.rotate(projection,ang,cval=np.amin(projection),reshape=False)
+            reconstruction += cropCenterMatrix(rot_img,sample_projection.shape)
+
+        return reconstruction
 
