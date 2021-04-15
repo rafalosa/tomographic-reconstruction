@@ -9,8 +9,6 @@ import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
 from typing import Union,Tuple
-from PIL import Image
-from numpy import random
 import matplotlib.pyplot as plt
 
 """
@@ -25,6 +23,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 # todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
 # todo: Apply filtering to back-projection reconstruction.
 # todo: Maybe add some multiprocessing to reconstruction techniques.
+
 
 def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
@@ -90,8 +89,8 @@ def padMatrix(matrix:np.ndarray,new_size:Tuple[int,int],pad_color:float):
         width, height = matrix.shape
     else:
         width,height = (matrix.shape[0],0)
-    left_offset = int((new_size[0] - width)/2)
-    top_offset = int((new_size[1] - height)/2)
+    left_offset = (new_size[0] - width)//2
+    top_offset = (new_size[1] - height)//2
     for ind,row in enumerate(new_matrix[top_offset:top_offset+height]):
         row[left_offset:left_offset+width] += matrix[ind]
 
@@ -250,11 +249,20 @@ class Scan:
 
     def loadSinogram(self,path:str) -> None:
         sinogram = mpimg.imread(path)
+
+        if sinogram.shape[0] != sinogram.shape[1]:
+            raise AttributeError("Image has to be square")
+
         sinogram_sum = np.sum(sinogram,axis=2)
         self.sinogram = sinogram_sum
 
     def loadImage(self,path:str) -> None:
-        self.image = mpimg.imread(path)
+        img = mpimg.imread(path)
+
+        if img.shape[0] != img.shape[1]:
+            raise AttributeError("Image has to be square")
+
+        self.image = img
         self.width,self.height,_ = self.image.shape
 
     def fourierReconstruction(self) -> Tuple[np.ndarray,np.ndarray]:
