@@ -5,14 +5,14 @@ import matplotlib.image as mpimg
 
 if __name__ == '__main__':
 
-    img_path = "images/SheppLogan_Phantom.svg.png"
+    img_path = "images/sample10.png"
     image = mpimg.imread(img_path)
     scan_obj = sinograms.Scan()
-    scan_obj.loadImage(img_path)
-    #scan_obj.loadSinogram(img_path)
+    #scan_obj.loadImage(img_path)
+    scan_obj.loadSinogram(img_path)
     #scan_obj.generateSinogram(201,200)
     #scan_obj.fanBeamSinogram(301,200,60,4)
-    """scan_obj.generateSinogram(101,100,4)
+    """scan_obj.generateSinogram(301,200,6)
     fourier,recon = scan_obj.fourierReconstruction()
     fig,axs = plt.subplots(2,2)
     axs[0,0].imshow(image)

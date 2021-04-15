@@ -22,6 +22,8 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 # todo: Crop/pad loaded image so it is square.
 # todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter.
 # todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
+# todo: Apply filtering to back-projection reconstruction.
+# todo: Deal with cutting off some of the sinogram data while using back-projection reconstruction.
 
 def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
@@ -274,10 +276,12 @@ class Scan:
         return interpolated_radial_fft, reconstruction
 
     def backProjectionReconstruction(self):
-        """random.seed(123)
 
-        values = random.uniform(0,20,100)
-        c = np.hstack(values)
-        slice = np.tile(c/len(c),(len(c),1))
-        plt.imshow(slice)
-        plt.show()"""
+        projection2 = np.tile(self.sinogram[0]/len(self.sinogram[0]),(len(self.sinogram[0]),1))
+        angles = np.linspace(0,180,len(self.sinogram))
+        for ang,values in zip(angles,self.sinogram):
+            projection = np.tile(values/len(values),(len(values),1))
+            projection2 += ndimage.rotate(projection,ang,reshape=False)
+        plt.imshow(projection2)
+        plt.show()
+
