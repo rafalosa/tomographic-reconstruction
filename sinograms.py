@@ -9,6 +9,7 @@ import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
 from typing import Union,Tuple
+from PIL import Image
 from numpy import random
 import matplotlib.pyplot as plt
 
@@ -80,6 +81,18 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
     image_mem.close()
 
     return sinogram_row
+
+
+def padMatrix(matrix, new_size,pad_color):
+
+    new_matrix = np.ones(new_size)*pad_color
+    width, height = matrix.shape
+    left_offset = int((new_size[0] - width)/2)
+    top_offset = int((new_size[1] - height)/2)
+    for ind,row in enumerate(new_matrix[top_offset:top_offset+height]):
+        row[left_offset:left_offset+width] += matrix[ind]
+
+    return new_matrix
 
 
 def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resolution:int,
@@ -277,11 +290,14 @@ class Scan:
 
     def backProjectionReconstruction(self):
 
-        projection2 = np.tile(self.sinogram[0]/len(self.sinogram[0]),(len(self.sinogram[0]),1))
+        sample_projection = np.tile(self.sinogram[3],(len(self.sinogram[0]),1))
+        reconstruction_size = ndimage.rotate(sample_projection,45).shape
+        reconstruction = np.zeros(reconstruction_size)
         angles = np.linspace(0,180,len(self.sinogram))
-        for ang,values in zip(angles,self.sinogram):
-            projection = np.tile(values/len(values),(len(values),1))
-            projection2 += ndimage.rotate(projection,ang,reshape=False)
-        plt.imshow(projection2)
+        for ang,values in zip(angles,self.sinogram-1):
+            projection = np.tile(values,(len(values),1))
+            reconstruction += padMatrix(ndimage.rotate(projection,ang,
+                                                       cval=min(values)),reconstruction_size,min(values))
+        plt.imshow(reconstruction,cmap='gray')
         plt.show()
 
