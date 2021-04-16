@@ -310,13 +310,40 @@ class Scan:
         reconstruction = np.zeros(sample_projection.shape)
         offset = (reconstruction_size[0] - len(self.sinogram[0]))//2
         angles = np.linspace(0,180,len(self.sinogram-np.amin(self.sinogram)))
+        data = self.sinogram[5] - np.amin(self.sinogram[5])
+        fig1,ax1 = plt.subplots()
+        ax1.plot(data)
 
-        for ang,values in zip(angles,self.sinogram):
-            new_row = np.ones([reconstruction_size[0]])*min(values)
-            new_row[offset:offset + len(values)] = values
+        cutoff = 0.5
+
+        data2 = np.abs(scipy.fft.fftshift(scipy.fft.fft(data)))
+        fig2, ax2 = plt.subplots()
+        d = scipy.fft.fftfreq(len(data2))
+        data2 = scipy.fft.fftshift(data2)
+        ax2.plot(d,data2)
+        data2 = [np.abs(el) if np.abs(el) >= 0.5 else 0 for el in data2]
+        print(data2)
+        #fig3, ax3 = plt.subplots()
+
+
+        fig4, ax4 = plt.subplots()
+        data3 = data*np.abs(scipy.fft.ifft(data2))
+        ax4.plot(data3)
+        plt.show()
+
+        """for ang,values in zip(angles,self.sinogram):
+            new_row = np.zeros(reconstruction_size[0])
+            new_row[offset:offset + len(values)] = values - min(values)
+            
+            datar = np.abs(scipy.fft.fftshift(scipy.fft.fft(new_row)))
+            new_row = new_row - np.abs(scipy.fft.ifft(datar))
+            
+            
             projection = np.tile(new_row/reconstruction_size[0],(len(new_row),1))
             rot_img = ndimage.rotate(projection,ang,cval=np.amin(projection),reshape=False)
             reconstruction += cropCenterMatrix(rot_img,sample_projection.shape)
 
-        return reconstruction
+        plt.imshow(reconstruction)
+        plt.show()"""
+        return 0
 
