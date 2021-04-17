@@ -305,45 +305,71 @@ class Scan:
 
     def backProjectionReconstruction(self):
 
+        filter_gain = 100
+
         sample_projection = np.tile(self.sinogram[0],(len(self.sinogram[0]),1))
         reconstruction_size = ndimage.rotate(sample_projection,45).shape
         reconstruction = np.zeros(sample_projection.shape)
         offset = (reconstruction_size[0] - len(self.sinogram[0]))//2
         angles = np.linspace(0,180,len(self.sinogram-np.amin(self.sinogram)))
-        data = self.sinogram[5] - np.amin(self.sinogram[5])
-        fig1,ax1 = plt.subplots()
-        ax1.plot(data)
+        num = 16
 
-        cutoff = 0.5
+        projection = (self.sinogram[num] - np.amin(self.sinogram[num]))/(np.amax(self.sinogram[num] - np.amin(self.sinogram[num])))
+        fig,axs = plt.subplots(2,3)
+        cutoff = 0.4
+        axs[0,0].plot(projection)
+        axs[0, 0].set_title("Example projection")
 
-        data2 = np.abs(scipy.fft.fftshift(scipy.fft.fft(data)))
-        fig2, ax2 = plt.subplots()
-        d = scipy.fft.fftfreq(len(data2))
-        data2 = scipy.fft.fftshift(data2)
-        ax2.plot(d,data2)
-        data2 = [np.abs(el) if np.abs(el) >= 0.5 else 0 for el in data2]
-        print(data2)
-        #fig3, ax3 = plt.subplots()
+        projection_fourier = scipy.fft.fftshift(scipy.fft.fft(projection))
+        domain = scipy.fft.fftfreq(len(projection_fourier))
+        domain.sort()
+        axs[0,1].plot(domain,projection_fourier)
+        axs[0, 1].set_title('FFT of projection, 0 freq shifted to center, no filtering')
 
+        filtered_fourier = filter(projection,cutoff)
+        axs[1,0].plot(domain,filtered_fourier)
+        axs[1, 0].set_title("Filtered fourier transform of projection, cutoff freq={}".format(cutoff))
 
-        fig4, ax4 = plt.subplots()
-        data3 = data*np.abs(scipy.fft.ifft(data2))
-        ax4.plot(data3)
-        plt.show()
+        axs[1,1].plot(filterInv(projection,cutoff))
+        axs[1, 1].set_title("Reconstructed filtered projection")
 
-        """for ang,values in zip(angles,self.sinogram):
+        filtered_projection_fourier = filterInv(projection,cutoff)
+        axs[1,2].imshow(np.tile(filtered_projection_fourier,(len(filtered_projection_fourier),1)),cmap="gray")
+
+        """fourier_neutral_test = [el*1 if np.abs(freq) >= 0 else 0 for el, freq in zip(projection_fourier, domain)]
+        unfiltered_projection = np.abs(scipy.fft.ifft(fourier_neutral_test))
+        axs[0,2].plot(unfiltered_projection)
+        axs[0, 2].set_title("Unfiltered fourier reconstruction")"""
+
+        for ang,values in zip(angles,self.sinogram):
             new_row = np.zeros(reconstruction_size[0])
-            new_row[offset:offset + len(values)] = values - min(values)
-            
-            datar = np.abs(scipy.fft.fftshift(scipy.fft.fft(new_row)))
-            new_row = new_row - np.abs(scipy.fft.ifft(datar))
-            
-            
-            projection = np.tile(new_row/reconstruction_size[0],(len(new_row),1))
+            if np.amax(values - min(values)) != 0:
+                new_row[offset:offset + len(values)] = (values - min(values))/max(values - min(values))
+            else:
+                new_row[offset:offset + len(values)] = values
+
+            filtered = filterInv(new_row,cutoff)
+            new_row2 = new_row - filter_gain*filtered
+            projection = np.tile(new_row2/reconstruction_size[0],(len(new_row2),1))
             rot_img = ndimage.rotate(projection,ang,cval=np.amin(projection),reshape=False)
             reconstruction += cropCenterMatrix(rot_img,sample_projection.shape)
 
-        plt.imshow(reconstruction)
-        plt.show()"""
+        axs[0,2].imshow(reconstruction,cmap='gray')
+        plt.show()
         return 0
 
+def filter(arr,cutoff):
+
+    data2 = scipy.fft.fftshift(scipy.fft.fft(arr))
+    d = scipy.fft.fftfreq(len(data2))
+    d.sort()
+    filtered_fourier = np.where(np.abs(d) < cutoff, np.real(data2)*np.abs(d),0)
+    return filtered_fourier
+
+def filterInv(arr,cutoff):
+
+    data2 = scipy.fft.fftshift(scipy.fft.fft(arr))
+    d = scipy.fft.fftfreq(len(data2))
+    d.sort()
+    filtered_fourier = np.where(np.abs(d) < cutoff,np.real(data2)*np.abs(d),0)
+    return np.abs(scipy.fft.ifft(filtered_fourier))

@@ -10,7 +10,7 @@ if __name__ == '__main__':
     scan_obj = sinograms.Scan()
     #scan_obj.loadImage(img_path)
     scan_obj.loadSinogram(img_path)
-    #scan_obj.generateSinogram(151,150,6)
+    #scan_obj.generateSinogram(350,200,6)
     #scan_obj.fanBeamSinogram(301,200,60,4)
     #scan_obj.generateSinogram(301,200,6)
     #fourier,recon = scan_obj.fourierReconstruction()
