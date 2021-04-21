@@ -10,9 +10,9 @@ if __name__ == '__main__':
     scan_obj = sinograms.Scan()
     #scan_obj.loadImage(img_path)
     scan_obj.loadSinogram(img_path)
-    #scan_obj.generateSinogram(350,200,6)
+    #scan_obj.generateSinogram(250,250,8)
     #scan_obj.fanBeamSinogram(301,200,60,4)
-    #scan_obj.generateSinogram(301,200,6)
+    #scan_obj.generateSinogram(301,200,8)
     #fourier,recon = scan_obj.fourierReconstruction()
     scan_obj.backProjectionReconstruction()
     """fig,axs = plt.subplots(2,3)
@@ -24,8 +24,8 @@ if __name__ == '__main__':
     axs[1, 0].set_title('FFT of the sinogram converted\nto polar coordinates (abs)')
     axs[1,1].imshow(recon,cmap='gray')
     axs[1, 1].set_title('Reconstructed image FR')
-    axs[1, 2].imshow(scan_obj.backProjectionReconstruction(), cmap='gray')
-    axs[1, 2].set_title('Reconstructed image BP')
-    fig.tight_layout(pad=1.0)
-    plt.show()"""
+    #axs[1, 2].imshow(scan_obj.backProjectionReconstruction(), cmap='gray')
+    #axs[1, 2].set_title('Reconstructed image BP')
+    fig.tight_layout(pad=1.0)"""
+    plt.show()
 

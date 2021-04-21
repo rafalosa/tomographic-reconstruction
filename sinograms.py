@@ -8,7 +8,7 @@ import scipy
 import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
-from typing import Union,Tuple
+from typing import Union, Tuple
 import matplotlib.pyplot as plt
 
 """
@@ -16,6 +16,8 @@ Useful sources: http://bioeng2003.fc.ul.pt/Conference%20Files/papers/De%20France
 http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - Polish
 
 """
+
+
 # todo: Implement other reconstruction techniques: iterative, algebraic.
 # todo: Check for correct sinogram orientation in loadSinogram.
 # todo: Crop/pad loaded image so it is square.
@@ -25,15 +27,15 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 # todo: Maybe add some multiprocessing to reconstruction techniques.
 
 
-def rotate(vector:Union[np.ndarray,tuple],angle:float) -> np.ndarray:
+def rotate(vector: Union[np.ndarray, tuple], angle: float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
 
-    rot_matrix = [[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]]
-    return np.dot(rot_matrix,vector)
+    rot_matrix = [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    return np.dot(rot_matrix, vector)
 
 
-def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
-                                 back_translation:bool = True) -> Tuple[float,float]:
+def transformReferenceFramePoint(t, s, angle: float, x_offset: float, y_offset: float,
+                                 back_translation: bool = True) -> Tuple[float, float]:
     '''Function that transforms points between the patient's reference frame and detector's reference frame,
     transformation consists of translation, rotation and back translation'''
 
@@ -42,22 +44,21 @@ def transformReferenceFramePoint(t,s,angle:float,x_offset:float,y_offset:float,
     in the 1st quadrant of the coordinate system), translation transformation is first required before
     rotating the reference frame"""
 
-    x = (t-x_offset)*np.cos(angle) - (s-y_offset)*np.sin(angle)
-    y = (t-x_offset)*np.sin(angle) + (s-y_offset)*np.cos(angle)
+    x = (t - x_offset) * np.cos(angle) - (s - y_offset) * np.sin(angle)
+    y = (t - x_offset) * np.sin(angle) + (s - y_offset) * np.cos(angle)
 
     if back_translation:
-        return x+x_offset,y+y_offset
+        return x + x_offset, y + y_offset
     else:
-        return x,y
+        return x, y
 
 
-def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple,
-                                 dtype:type,memory_block_name:str,angle:float) -> np.ndarray:
-
+def evaluateForParallelRays(lines_t_size: int, lines_s_size: int, image_shape: tuple,
+                            dtype: type, memory_block_name: str, angle: float) -> np.ndarray:
     width, height, _ = image_shape
     lines_t = np.linspace(0, width, lines_t_size)
     lines_s = np.linspace(0, height, lines_s_size)
-    sinogram_row = np.zeros([len(lines_t),1])
+    sinogram_row = np.zeros([len(lines_t), 1])
     image_mem = sm.SharedMemory(name=memory_block_name)
     image = np.ndarray(shape=image_shape, dtype=dtype, buffer=image_mem.buf)
 
@@ -82,35 +83,33 @@ def evaluateForParallelRays(lines_t_size:int, lines_s_size:int,image_shape:tuple
     return sinogram_row
 
 
-def padMatrix(matrix:np.ndarray,new_size:Tuple[int,int],pad_color:float):
-
-    new_matrix = np.ones(new_size)*pad_color
+def padMatrix(matrix: np.ndarray, new_size: Tuple[int, int], pad_color: float):
+    new_matrix = np.ones(new_size) * pad_color
     if len(matrix) == 2:
         width, height = matrix.shape
     else:
-        width,height = (matrix.shape[0],0)
-    left_offset = (new_size[0] - width)//2
-    top_offset = (new_size[1] - height)//2
-    for ind,row in enumerate(new_matrix[top_offset:top_offset+height]):
-        row[left_offset:left_offset+width] += matrix[ind]
+        width, height = (matrix.shape[0], 0)
+    left_offset = (new_size[0] - width) // 2
+    top_offset = (new_size[1] - height) // 2
+    for ind, row in enumerate(new_matrix[top_offset:top_offset + height]):
+        row[left_offset:left_offset + width] += matrix[ind]
 
     return new_matrix
 
 
-def cropCenterMatrix(matrix:np.ndarray,new_matrix_size:Tuple[int,int]):
-    width,height = matrix.shape
-    left_offset = width//2 - new_matrix_size[0]//2
-    top_offset = height//2 - new_matrix_size[1]//2
-    return matrix[top_offset:top_offset+new_matrix_size[1],left_offset:left_offset+new_matrix_size[0]]
+def cropCenterMatrix(matrix: np.ndarray, new_matrix_size: Tuple[int, int]):
+    width, height = matrix.shape
+    left_offset = width // 2 - new_matrix_size[0] // 2
+    top_offset = height // 2 - new_matrix_size[1] // 2
+    return matrix[top_offset:top_offset + new_matrix_size[1], left_offset:left_offset + new_matrix_size[0]]
 
 
-def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resolution:int,
-                       cone_angle:float, radius:float, image_shape:tuple,
-                       dtype:type,memory_block_name:str,frame_angle:float):
-
+def evaluateForFanRays(initial_source_position: tuple, resolution: int, path_resolution: int,
+                       cone_angle: float, radius: float, image_shape: tuple,
+                       dtype: type, memory_block_name: str, frame_angle: float):
     image_mem = sm.SharedMemory(name=memory_block_name)
     image = np.ndarray(shape=image_shape, dtype=dtype, buffer=image_mem.buf)
-    width,height,_ = image_shape
+    width, height, _ = image_shape
     sinogram_row = np.zeros([resolution, 1])
 
     angles_rays = np.linspace((np.pi - cone_angle) / 2,
@@ -118,7 +117,7 @@ def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resol
 
     xray_source_position = rotate(initial_source_position, frame_angle)
 
-    for row_index,ray_ang in enumerate(angles_rays):  # Generating initial coordinates for each xray
+    for row_index, ray_ang in enumerate(angles_rays):  # Generating initial coordinates for each xray
         domain = generateDomain(ray_ang, radius, initial_source_position, path_resolution)
         ray = np.tan(ray_ang) * domain + initial_source_position[1]
 
@@ -144,15 +143,14 @@ def evaluateForFanRays(initial_source_position:tuple, resolution:int, path_resol
     return sinogram_row
 
 
-def generateDomain(angle:float, radius:float, source_coords:tuple,points_num:int) -> np.ndarray:
-
-    if angle <= np.pi/2:
+def generateDomain(angle: float, radius: float, source_coords: tuple, points_num: int) -> np.ndarray:
+    if angle <= np.pi / 2:
         start_point = -radius * np.cos(angle)
-        domain = np.linspace(start_point,source_coords[0],points_num)
+        domain = np.linspace(start_point, source_coords[0], points_num)
         return domain
     else:
         end_point = radius * np.cos(np.pi - angle)
-        domain = np.linspace(source_coords[0],end_point, points_num)
+        domain = np.linspace(source_coords[0], end_point, points_num)
         return domain
 
 
@@ -164,7 +162,7 @@ class Scan:
         self.width = None
         self.height = None
 
-    def generateSinogram(self,resolution:int,path_resolution:int,processes:int = 0) -> None:
+    def generateSinogram(self, resolution: int, path_resolution: int, processes: int = 0) -> None:
 
         '''This function generates a sinogram for a given image. Parameters (resolution,path_resolution,processes)
         resolution determines how many Xray beams are used to generate the sinogram as well as how many angular
@@ -182,9 +180,9 @@ class Scan:
         number_of_rays = resolution  # How many X-ray beams/detector cells
         angle_resolution = resolution  # Angular step
         angles = np.linspace(np.pi / 2, np.pi * 3 / 2, angle_resolution + 1)
-        image_memory_shared = sm.SharedMemory(create=True,size=self.image.nbytes)
-        image_shared_copy = np.ndarray(self.image.shape,dtype=self.image.dtype,buffer=image_memory_shared.buf)
-        image_shared_copy[:,:,:] = self.image[:,:,:]
+        image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
+        image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)
+        image_shared_copy[:, :, :] = self.image[:, :, :]
 
         if processes:
             CPU_S = processes
@@ -193,10 +191,10 @@ class Scan:
 
         pool = Pool(processes=CPU_S)
 
-        function = partial(evaluateForParallelRays,number_of_rays+1,path_resolution+1,
-                           self.image.shape,self.image.dtype,image_memory_shared.name)
+        function = partial(evaluateForParallelRays, number_of_rays + 1, path_resolution + 1,
+                           self.image.shape, self.image.dtype, image_memory_shared.name)
 
-        results = pool.imap(function,(ang for ang in angles))
+        results = pool.imap(function, (ang for ang in angles))
         pool.close()
         pool.join()
 
@@ -207,7 +205,7 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def fanBeamSinogram(self,resolution:int,path_resolution:int,cone_angle_deg:float,processes:int = 0) -> None:
+    def fanBeamSinogram(self, resolution: int, path_resolution: int, cone_angle_deg: float, processes: int = 0) -> None:
         # Probably implement this method to generateSinogram with an additional bool parameter
 
         if cone_angle_deg >= 180 or cone_angle_deg <= 0:
@@ -218,9 +216,9 @@ class Scan:
 
         cone_angle = np.deg2rad(cone_angle_deg)
 
-        xray_source_initial_position = (0, self.height + self.width/2/np.tan(cone_angle/2))
-        xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1]/3
-        reference_frame_angles = np.linspace(np.pi/2,np.pi*3/2,resolution)
+        xray_source_initial_position = (0, self.height + self.width / 2 / np.tan(cone_angle / 2))
+        xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1] / 3
+        reference_frame_angles = np.linspace(np.pi / 2, np.pi * 3 / 2, resolution)
         # Angles for rotating the source-detector reference frame
         image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)
@@ -232,9 +230,9 @@ class Scan:
             CPU_S = mp.cpu_count() - 2
 
         pool = Pool(processes=CPU_S)
-        function = partial(evaluateForFanRays,xray_source_initial_position,resolution,
-                           path_resolution,cone_angle,xray_radius,self.image.shape,
-                           self.image.dtype,image_memory_shared.name)
+        function = partial(evaluateForFanRays, xray_source_initial_position, resolution,
+                           path_resolution, cone_angle, xray_radius, self.image.shape,
+                           self.image.dtype, image_memory_shared.name)
 
         results = pool.imap(function, (ang for ang in reference_frame_angles))
         pool.close()
@@ -247,25 +245,25 @@ class Scan:
 
         self.sinogram = sinogram
 
-    def loadSinogram(self,path:str) -> None:
+    def loadSinogram(self, path: str) -> None:
         sinogram = mpimg.imread(path)
 
         if sinogram.shape[0] != sinogram.shape[1]:
             raise AttributeError("Image has to be square")
 
-        sinogram_sum = np.sum(sinogram,axis=2)
+        sinogram_sum = np.sum(sinogram, axis=2)
         self.sinogram = sinogram_sum
 
-    def loadImage(self,path:str) -> None:
+    def loadImage(self, path: str) -> None:
         img = mpimg.imread(path)
 
         if img.shape[0] != img.shape[1]:
             raise AttributeError("Image has to be square")
 
         self.image = img
-        self.width,self.height,_ = self.image.shape
+        self.width, self.height, _ = self.image.shape
 
-    def fourierReconstruction(self) -> Tuple[np.ndarray,np.ndarray]:
+    def fourierReconstruction(self) -> Tuple[np.ndarray, np.ndarray]:
 
         # This reconstruction exploits the mathematical similarity of the definition of projection to 2D Fourier
         # transform of absorption coefficient.
@@ -295,7 +293,7 @@ class Scan:
 
         interpolated_radial_fft = scipy.interpolate.griddata((x_data, y_data), fft_sinogram.flatten(), (X, Y),
                                                              fill_value=0.0, method='cubic').reshape(
-                                                            (fourier_size, fourier_size))
+            (fourier_size, fourier_size))
 
         reconstruction = scipy.fft.fftshift(scipy.fft.ifft2(scipy.fft.ifftshift(interpolated_radial_fft)))
 
@@ -305,71 +303,72 @@ class Scan:
 
     def backProjectionReconstruction(self):
 
-        filter_gain = 100
-
-        sample_projection = np.tile(self.sinogram[0],(len(self.sinogram[0]),1))
-        reconstruction_size = ndimage.rotate(sample_projection,45).shape
+        sample_projection = np.tile(self.sinogram[0], (len(self.sinogram[0]), 1))
+        reconstruction_size = ndimage.rotate(sample_projection, 45).shape
         reconstruction = np.zeros(sample_projection.shape)
-        offset = (reconstruction_size[0] - len(self.sinogram[0]))//2
-        angles = np.linspace(0,180,len(self.sinogram-np.amin(self.sinogram)))
+        reconstruction2 = np.zeros(sample_projection.shape)
+        offset = (reconstruction_size[0] - len(self.sinogram[0])) // 2
+        angles = np.linspace(0, 180, len(self.sinogram - np.amin(self.sinogram)))
         num = 16
 
-        projection = (self.sinogram[num] - np.amin(self.sinogram[num]))/(np.amax(self.sinogram[num] - np.amin(self.sinogram[num])))
-        fig,axs = plt.subplots(2,3)
-        cutoff = 0.4
-        axs[0,0].plot(projection)
-        axs[0, 0].set_title("Example projection")
+        projection = (self.sinogram[num] - np.amin(self.sinogram[num])) \
+                     / (np.amax(self.sinogram[num] - np.amin(self.sinogram[num])))
+        fig, axs = plt.subplots(2, 4)
+        cutoff = 1
+        axs[0, 1].plot(projection)
+        axs[0, 1].set_title("Example projection")
 
         projection_fourier = scipy.fft.fftshift(scipy.fft.fft(projection))
         domain = scipy.fft.fftfreq(len(projection_fourier))
         domain.sort()
-        axs[0,1].plot(domain,projection_fourier)
-        axs[0, 1].set_title('FFT of projection, 0 freq shifted to center, no filtering')
+        axs[0, 0].plot(domain, projection_fourier)
+        axs[0, 0].set_title('FFT of projection, 0 freq shifted to center, no filtering')
 
-        filtered_fourier = filter(projection,cutoff)
-        axs[1,0].plot(domain,filtered_fourier)
+        filtered_fourier = filter(projection, cutoff)
+        axs[1, 0].plot(domain, filtered_fourier)
         axs[1, 0].set_title("Filtered fourier transform of projection, cutoff freq={}".format(cutoff))
 
-        axs[1,1].plot(filterInv(projection,cutoff))
+        axs[1, 1].plot(filterInv(projection, cutoff) / max(filterInv(projection, cutoff)))
         axs[1, 1].set_title("Reconstructed filtered projection")
 
-        filtered_projection_fourier = filterInv(projection,cutoff)
-        axs[1,2].imshow(np.tile(filtered_projection_fourier,(len(filtered_projection_fourier),1)),cmap="gray")
+        filtered_projection_fourier = filterInv(projection, cutoff)
+        axs[1, 2].imshow(np.tile(filtered_projection_fourier, (len(filtered_projection_fourier), 1)), cmap="gray")
 
         """fourier_neutral_test = [el*1 if np.abs(freq) >= 0 else 0 for el, freq in zip(projection_fourier, domain)]
         unfiltered_projection = np.abs(scipy.fft.ifft(fourier_neutral_test))
         axs[0,2].plot(unfiltered_projection)
         axs[0, 2].set_title("Unfiltered fourier reconstruction")"""
 
-        for ang,values in zip(angles,self.sinogram):
+        for ang, values in zip(angles, self.sinogram):
             new_row = np.zeros(reconstruction_size[0])
-            if np.amax(values - min(values)) != 0:
-                new_row[offset:offset + len(values)] = (values - min(values))/max(values - min(values))
-            else:
-                new_row[offset:offset + len(values)] = values
+            new_row[offset:offset + len(values)] = (values - min(values)) / max(values - min(values))
+            filtered = filterInv(new_row, cutoff)
+            fil_max = np.max(filtered)
+            new_row2 = filtered
+            projection = np.tile(new_row2 / reconstruction_size[0], (len(new_row2), 1))
+            projection2 = np.tile(new_row, (len(new_row2), 1))
+            rot_img = ndimage.rotate(projection, ang, cval=np.amin(projection), reshape=False)
+            rot_img2 = ndimage.rotate(projection2, ang, cval=np.amin(projection), reshape=False)
+            reconstruction += cropCenterMatrix(rot_img, sample_projection.shape)
+            reconstruction2 += cropCenterMatrix(rot_img2, sample_projection.shape)
 
-            filtered = filterInv(new_row,cutoff)
-            new_row2 = new_row - filter_gain*filtered
-            projection = np.tile(new_row2/reconstruction_size[0],(len(new_row2),1))
-            rot_img = ndimage.rotate(projection,ang,cval=np.amin(projection),reshape=False)
-            reconstruction += cropCenterMatrix(rot_img,sample_projection.shape)
-
-        axs[0,2].imshow(reconstruction,cmap='gray')
+        axs[0, 2].imshow(reconstruction, cmap='gray')
+        axs[0, 3].imshow(reconstruction2, cmap='gray')
         plt.show()
         return 0
 
-def filter(arr,cutoff):
 
+def filter(arr, cutoff):
     data2 = scipy.fft.fftshift(scipy.fft.fft(arr))
     d = scipy.fft.fftfreq(len(data2))
     d.sort()
-    filtered_fourier = np.where(np.abs(d) < cutoff, np.real(data2)*np.abs(d),0)
+    filtered_fourier = np.where(np.abs(d) < cutoff, data2 * np.abs(d), 0)
     return filtered_fourier
 
-def filterInv(arr,cutoff):
 
+def filterInv(arr, cutoff):
     data2 = scipy.fft.fftshift(scipy.fft.fft(arr))
     d = scipy.fft.fftfreq(len(data2))
     d.sort()
-    filtered_fourier = np.where(np.abs(d) < cutoff,np.real(data2)*np.abs(d),0)
+    filtered_fourier = np.where(np.abs(d) < cutoff, data2 * np.abs(d), 0)
     return np.abs(scipy.fft.ifft(filtered_fourier))
