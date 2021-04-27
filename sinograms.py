@@ -8,7 +8,7 @@ import scipy
 import scipy.interpolate
 from scipy import fft
 from scipy import ndimage
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 import matplotlib.pyplot as plt
 
 """
@@ -316,7 +316,7 @@ class Scan:
         angles = np.linspace(0, angle, len(self.sinogram))
 
         if filtered:
-            self._filter = generateFilter(reconstruction_size[0])
+            self._filter = generateFilter(reconstruction_size[0],mod_function=lambda x: np.cos(x))
 
         for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
 
@@ -326,7 +326,10 @@ class Scan:
 
             filtered_projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter*extended_projection_freq)))
             if ind == 0:
-                plt.plot(filtered_projection)
+                fig,ax = plt.subplots()
+                ax.plot(self._filter)
+                ax2 = ax.twinx()
+                ax2.plot(np.real(extended_projection_freq))
                 plt.show()
             back_projection = np.tile(filtered_projection / reconstruction_size[0], (len(filtered_projection), 1))
             rot_img = ndimage.rotate(back_projection, ang, cval=np.amin(back_projection), reshape=False)
@@ -336,9 +339,16 @@ class Scan:
         plt.show()
         return 0
 
-def generateFilter(data_length,kind='ram-lak',mod_function = None):
+
+def generateFilter(data_length,kind='ram-lak',mod_function:Union[Callable,None] = None):
+
     spatial_domain = np.array(range(data_length))
     ramlak_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
-              for n in spatial_domain - data_length//2]
+                      for n in spatial_domain - data_length // 2]
+    freq_filter = np.abs(scipy.fft.fftshift(scipy.fft.fft(ramlak_spatial)))
 
-    return np.abs(scipy.fft.fftshift(scipy.fft.fft(ramlak_spatial)))
+    if mod_function is not None:
+        frequency_domain = np.linspace(-np.pi/2,np.pi/2,data_length)
+        freq_filter *= mod_function(frequency_domain)
+
+    return freq_filter
