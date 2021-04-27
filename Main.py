@@ -5,7 +5,7 @@ import matplotlib.image as mpimg
 
 if __name__ == '__main__':
 
-    img_path = "images/sinograms/sample9.png"
+    img_path = "images/sinograms/sample6.png"
     image = mpimg.imread(img_path)
     scan_obj = sinograms.Scan()
     #scan_obj.loadImage(img_path)
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     #scan_obj.fanBeamSinogram(301,200,60,4)
     #scan_obj.generateSinogram(301,200,8)
     #fourier,recon = scan_obj.fourierReconstruction()
-    scan_obj.backProjectionReconstruction()
+    scan_obj.backProjectionReconstruction(180)
     """fig,axs = plt.subplots(2,3)
     axs[0,0].imshow(image)
     axs[0,0].set_title('Original image')

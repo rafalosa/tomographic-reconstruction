@@ -17,13 +17,12 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 """
 
-
 # todo: Implement other reconstruction techniques: iterative, algebraic.
 # todo: Check for correct sinogram orientation in loadSinogram.
 # todo: Crop/pad loaded image so it is square.
 # todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter.
 # todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
-# todo: Apply filtering to back-projection reconstruction.
+# todo: Add possibility to define an additional function that applies on top of the filter.
 # todo: Maybe add some multiprocessing to reconstruction techniques.
 
 def closestPow2(num):
@@ -163,6 +162,8 @@ class Scan:
         self.sinogram = None
         self.width = None
         self.height = None
+        self._filter = None
+
 
     def generateSinogram(self, resolution: int, path_resolution: int, processes: int = 0) -> None:
 
@@ -303,43 +304,41 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
-    def backProjectionReconstruction(self):
+    def backProjectionReconstruction(self,angle,filtered=True):
 
-        projection = self.sinogram[0]
-        projection = projection-min(projection)
 
-        sample_projection = np.tile(projection, (len(projection), 1))
 
-        reconstruction_size = ndimage.rotate(sample_projection, 45).shape
-        reconstruction = np.zeros(sample_projection.shape)
-        angles = np.linspace(0, 180, len(self.sinogram - np.amin(self.sinogram)))
+        sample_projection = self.sinogram[0]
+        sample_tile = np.tile(sample_projection, (len(sample_projection), 1))
+        reconstruction_size = ndimage.rotate(sample_tile, 45).shape
+        offset = (reconstruction_size[0] - len(self.sinogram[0])) // 2
+        reconstruction = np.zeros(sample_tile.shape)
+        angles = np.linspace(0, angle, len(self.sinogram))
+
+        if filtered:
+            self._filter = generateFilter(reconstruction_size[0])
 
         for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
 
-            new_row = values - min(values)
-            filtered = filterInv(new_row)
-            new_row2 = filtered
+            extended_projection = np.zeros(reconstruction_size[0])
+            extended_projection[offset:offset+len(values)] = values-min(values)
+            extended_projection_freq = scipy.fft.fftshift(scipy.fft.fft(extended_projection))
 
-            projection = np.tile(new_row2 / reconstruction_size[0], (len(new_row2), 1))
-            rot_img = ndimage.rotate(projection, ang, cval=np.amin(projection), reshape=False)
+            filtered_projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter*extended_projection_freq)))
             if ind == 0:
-                plt.imshow(rot_img)
+                plt.plot(filtered_projection)
                 plt.show()
-            reconstruction += cropCenterMatrix(rot_img, sample_projection.shape)
+            back_projection = np.tile(filtered_projection / reconstruction_size[0], (len(filtered_projection), 1))
+            rot_img = ndimage.rotate(back_projection, ang, cval=np.amin(back_projection), reshape=False)
+            reconstruction += cropCenterMatrix(rot_img, sample_tile.shape)
 
         plt.imshow(reconstruction, cmap='gray')
         plt.show()
         return 0
 
-def filterInv(arr):
-    padded_len = closestPow2(len(arr))
-    padded_data = np.zeros(padded_len)
-    offset = (padded_len - len(arr)) // 2
-    padded_data[offset:offset + len(arr)] = arr
-    data2 = scipy.fft.fftshift(scipy.fft.fft(padded_data))
-    domain = np.array(list(range(len(padded_data))))
-    ramlak = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2 for n in domain - len(domain)//2]
-    filter = scipy.fft.fftshift(np.abs(scipy.fft.fft(ramlak)))
-    filtered_data = data2 * filter
+def generateFilter(data_length,kind='ram-lak',mod_function = None):
+    spatial_domain = np.array(range(data_length))
+    ramlak_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
+              for n in spatial_domain - data_length//2]
 
-    return np.real(scipy.fft.ifft(scipy.fft.ifftshift(filtered_data)))
+    return np.abs(scipy.fft.fftshift(scipy.fft.fft(ramlak_spatial)))
