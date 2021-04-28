@@ -306,8 +306,6 @@ class Scan:
 
     def backProjectionReconstruction(self,angle,filtered=True):
 
-
-
         sample_projection = self.sinogram[0]
         sample_tile = np.tile(sample_projection, (len(sample_projection), 1))
         reconstruction_size = ndimage.rotate(sample_tile, 45).shape
@@ -316,7 +314,8 @@ class Scan:
         angles = np.linspace(0, angle, len(self.sinogram))
 
         if filtered:
-            self._filter = generateFilter(reconstruction_size[0],mod_function=lambda x: np.cos(x))
+            self._filter = generateFilter(reconstruction_size[0],
+                                          mod_function=lambda x,cutoff: np.abs(np.sin(x/2/cutoff)))
 
         for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
 
@@ -324,14 +323,8 @@ class Scan:
             extended_projection[offset:offset+len(values)] = values-min(values)
             extended_projection_freq = scipy.fft.fftshift(scipy.fft.fft(extended_projection))
 
-            filtered_projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter*extended_projection_freq)))
-            if ind == 0:
-                fig,ax = plt.subplots()
-                ax.plot(self._filter)
-                ax2 = ax.twinx()
-                ax2.plot(np.real(extended_projection_freq))
-                plt.show()
-            back_projection = np.tile(filtered_projection / reconstruction_size[0], (len(filtered_projection), 1))
+            projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter*extended_projection_freq)))
+            back_projection = np.tile(projection / reconstruction_size[0], (len(projection), 1))
             rot_img = ndimage.rotate(back_projection, ang, cval=np.amin(back_projection), reshape=False)
             reconstruction += cropCenterMatrix(rot_img, sample_tile.shape)
 
@@ -340,15 +333,17 @@ class Scan:
         return 0
 
 
-def generateFilter(data_length,kind='ram-lak',mod_function:Union[Callable,None] = None):
+def generateFilter(data_length,cutoff=1,kind='ram-lak',mod_function:Union[Callable,None] = None):
 
     spatial_domain = np.array(range(data_length))
-    ramlak_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
-                      for n in spatial_domain - data_length // 2]
-    freq_filter = np.abs(scipy.fft.fftshift(scipy.fft.fft(ramlak_spatial)))
+    ramp_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
+                    for n in spatial_domain - data_length // 2]
+    freq_filter = 2*np.abs(scipy.fft.fftshift(scipy.fft.fft(ramp_spatial)))
+    freq_domain = np.linspace(-np.pi, np.pi, data_length)
 
     if mod_function is not None:
-        frequency_domain = np.linspace(-np.pi/2,np.pi/2,data_length)
-        freq_filter *= mod_function(frequency_domain)
+        freq_filter *= mod_function(freq_domain,cutoff)
+
+    freq_filter = np.array([0 if np.abs(arg) > np.pi*cutoff else val for arg,val in zip(freq_domain,freq_filter)])
 
     return freq_filter
