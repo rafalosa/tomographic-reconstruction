@@ -25,14 +25,39 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 # todo: Add possibility to define an additional function that applies on top of the filter.
 # todo: Maybe add some multiprocessing to reconstruction techniques.
 
-def closestPow2(num):
-    return 2**(int(np.log2(2*num-1))+1)
 
 def rotate(vector: Union[np.ndarray, tuple], angle: float) -> np.ndarray:
     '''Function rotates a given vector counterclockwise by a given angle in radians (vector,angle)'''
 
     rot_matrix = [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
     return np.dot(rot_matrix, vector)
+
+
+def generateFilter(data_length,filter_function:Union[Callable,str],cutoff=1) -> np.ndarray:
+
+    spatial_domain = np.array(range(data_length))
+    ramp_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
+                    for n in spatial_domain - data_length // 2]
+    freq_filter = 2*np.abs(scipy.fft.fftshift(scipy.fft.fft(ramp_spatial)))
+    freq_domain = np.linspace(-np.pi, np.pi, data_length)
+
+    if filter_function == 'ramp':
+        def filter_function(*args): return 1
+
+    elif filter_function == 'cosine':
+        def filter_function(x,cut): return np.abs(np.cos(x/2/cut))
+
+    elif filter_function == 'shepp-logan':
+        def filter_function(x, cut): return np.abs(np.sin(x / 2 / cut)/x/2/cut)
+
+    freq_filter[freq_domain != 0] *= filter_function(freq_domain[(freq_domain != 0)],cutoff)
+
+    freq_filter = np.array([0 if np.abs(arg) > np.pi*cutoff or arg == 0
+                            else val for arg,val in zip(freq_domain,freq_filter)])
+    plt.plot(freq_filter)
+    plt.show()
+
+    return freq_filter
 
 
 def transformReferenceFramePoint(t, s, angle: float, x_offset: float, y_offset: float,
@@ -163,7 +188,6 @@ class Scan:
         self.width = None
         self.height = None
         self._filter = None
-
 
     def generateSinogram(self, resolution: int, path_resolution: int, processes: int = 0) -> None:
 
@@ -304,7 +328,8 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
-    def backProjectionReconstruction(self,angle,filtered=True):
+    def backProjectionReconstruction(self,angle,filter_function:Union[Callable,None,str] = 'ramp')\
+            -> Tuple[np.ndarray,np.ndarray]:
 
         sample_projection = self.sinogram[0]
         sample_tile = np.tile(sample_projection, (len(sample_projection), 1))
@@ -313,9 +338,9 @@ class Scan:
         reconstruction = np.zeros(sample_tile.shape)
         angles = np.linspace(0, angle, len(self.sinogram))
 
-        if filtered:
+        if filter_function is not None:
             self._filter = generateFilter(reconstruction_size[0],
-                                          mod_function=lambda x,cutoff: np.abs(np.sin(x/2/cutoff)))
+                                          filter_function=filter_function)
 
         for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
 
@@ -328,22 +353,4 @@ class Scan:
             rot_img = ndimage.rotate(back_projection, ang, cval=np.amin(back_projection), reshape=False)
             reconstruction += cropCenterMatrix(rot_img, sample_tile.shape)
 
-        plt.imshow(reconstruction, cmap='gray')
-        plt.show()
-        return 0
-
-
-def generateFilter(data_length,cutoff=1,kind='ram-lak',mod_function:Union[Callable,None] = None):
-
-    spatial_domain = np.array(range(data_length))
-    ramp_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
-                    for n in spatial_domain - data_length // 2]
-    freq_filter = 2*np.abs(scipy.fft.fftshift(scipy.fft.fft(ramp_spatial)))
-    freq_domain = np.linspace(-np.pi, np.pi, data_length)
-
-    if mod_function is not None:
-        freq_filter *= mod_function(freq_domain,cutoff)
-
-    freq_filter = np.array([0 if np.abs(arg) > np.pi*cutoff else val for arg,val in zip(freq_domain,freq_filter)])
-
-    return freq_filter
+        return reconstruction,self._filter
