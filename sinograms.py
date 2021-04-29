@@ -17,13 +17,16 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 """
 
-# todo: Implement other reconstruction techniques: iterative, algebraic.
+# todo: Implement other reconstruction techniques.
 # todo: Check for correct sinogram orientation in loadSinogram.
 # todo: Crop/pad loaded image so it is square.
-# todo: Implement fan beam sinogram into generateSinogram method using additional boolean parameter.
-# todo: Improve memory management for fan beam sinogram generation. Crashes when too many processes are used.
-# todo: Add possibility to define an additional function that applies on top of the filter.
-# todo: Maybe add some multiprocessing to reconstruction techniques.
+# todo: Add multiprocessing to reconstruction methods.
+
+
+class FilterFunctionError(Exception):
+    def __init__(self,message='Filter function takes only two parameters.'):
+        self.message = message
+        super().__init__(message)
 
 
 def rotate(vector: Union[np.ndarray, tuple], angle: float) -> np.ndarray:
@@ -33,7 +36,11 @@ def rotate(vector: Union[np.ndarray, tuple], angle: float) -> np.ndarray:
     return np.dot(rot_matrix, vector)
 
 
-def generateFilter(data_length,filter_function:Union[Callable,str],cutoff=1) -> np.ndarray:
+def generateFilter(data_length,filter_function:Union[Callable,str],cutoff) -> np.ndarray:
+    '''Function responsible for generating a filter in the Fourier domain. Filter can be defined as str:
+     'ramp','cosine','shepp-logan' which are the most common. Filter can be also defined as a custom function
+     in which case the standard ramp filter is multiplied by the function's result. The function requires 2
+     input paramaters - frequency domain and cutoff frequency of the filter.'''
 
     spatial_domain = np.array(range(data_length))
     ramp_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
@@ -45,10 +52,15 @@ def generateFilter(data_length,filter_function:Union[Callable,str],cutoff=1) -> 
         def filter_function(*args): return 1
 
     elif filter_function == 'cosine':
-        def filter_function(x,cut): return np.abs(np.cos(x/2/cut))
+        def filter_function(*args): return np.abs(np.cos(args[0]/2/args[1]))
 
     elif filter_function == 'shepp-logan':
-        def filter_function(x, cut): return np.abs(np.sin(x / 2 / cut)/x/2/cut)
+        def filter_function(*args): return np.abs(np.sin(args[0] / 2 / args[1])/args[0]/2/args[1])
+
+    try:
+        filter_function(freq_domain[(freq_domain != 0)],cutoff)
+    except (TypeError,IndexError):
+        raise FilterFunctionError()
 
     freq_filter[freq_domain != 0] *= filter_function(freq_domain[(freq_domain != 0)],cutoff)
 
@@ -328,8 +340,13 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
-    def backProjectionReconstruction(self,angle,filter_function:Union[Callable,None,str] = 'ramp')\
+    def backProjectionReconstruction(self,angle,filter_function:Union[Callable,None,str] = 'ramp',filter_cutoff=1)\
             -> Tuple[np.ndarray,np.ndarray]:
+        '''Method for reconstructing an image using the filtered back projection algorithm. angle defines
+         the max. angle at which the sinogram has been recorded. Filter can be defined via filter_function
+          as one of following strings:'ramp','cosine','shepp-logan' which are commonly used when dealing with FBP.
+          Filter can be also defined as None which means no filtration, or a custom lambda function which is later
+           applied to the standard ramp filter.'''
 
         sample_projection = self.sinogram[0]
         sample_tile = np.tile(sample_projection, (len(sample_projection), 1))
@@ -340,7 +357,9 @@ class Scan:
 
         if filter_function is not None:
             self._filter = generateFilter(reconstruction_size[0],
-                                          filter_function=filter_function)
+                                          filter_function=filter_function,cutoff=filter_cutoff)
+        else:
+            self._filter = 1
 
         for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
 

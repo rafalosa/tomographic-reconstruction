@@ -14,7 +14,7 @@ if __name__ == '__main__':
     #scan_obj.fanBeamSinogram(301,200,60,4)
     #scan_obj.generateSinogram(301,200,8)
     #fourier,recon = scan_obj.fourierReconstruction()
-    recon,filt = scan_obj.backProjectionReconstruction(180,filter_function=lambda x,cut: np.abs(x))
+    recon,filt = scan_obj.backProjectionReconstruction(180,filter_function=None)
     plt.imshow(recon,cmap='gray')
     """fig,axs = plt.subplots(2,3)
     axs[0,0].imshow(image)
