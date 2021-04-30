@@ -24,7 +24,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 
 class FilterFunctionError(Exception):
-    def __init__(self,message='Filter function takes only two parameters.'):
+    def __init__(self,message='Filter function error.'):
         self.message = message
         super().__init__(message)
 
@@ -57,10 +57,17 @@ def generateFilter(data_length,filter_function:Union[Callable,str],cutoff) -> np
     elif filter_function == 'shepp-logan':
         def filter_function(*args): return np.abs(np.sin(args[0] / 2 / args[1])/args[0]/2/args[1])
 
-    try:
-        filter_function(freq_domain[(freq_domain != 0)],cutoff)
-    except (TypeError,IndexError):
-        raise FilterFunctionError()
+    elif type(filter_function) == str:
+        raise FilterFunctionError("No filter defined as " + filter_function)
+
+    elif callable(filter_function):
+        try:
+            filter_function(freq_domain[(freq_domain != 0)],cutoff)
+        except (TypeError,IndexError):
+            raise FilterFunctionError("Filter function takes only 2 parameters.")
+
+    else:
+        raise FilterFunctionError("filter_function takes only str or callable parameter.")
 
     freq_filter[freq_domain != 0] *= filter_function(freq_domain[(freq_domain != 0)],cutoff)
 
@@ -135,7 +142,7 @@ def padMatrix(matrix: np.ndarray, new_size: Tuple[int, int], pad_color: float):
     return new_matrix
 
 
-def cropCenterMatrix(matrix: np.ndarray, new_matrix_size: Tuple[int, int]):
+def cropCenterMatrix(matrix: np.ndarray, new_matrix_size: Tuple[int, int]) -> np.ndarray:
     width, height = matrix.shape
     left_offset = width // 2 - new_matrix_size[0] // 2
     top_offset = height // 2 - new_matrix_size[1] // 2
@@ -144,7 +151,7 @@ def cropCenterMatrix(matrix: np.ndarray, new_matrix_size: Tuple[int, int]):
 
 def evaluateForFanRays(initial_source_position: tuple, resolution: int, path_resolution: int,
                        cone_angle: float, radius: float, image_shape: tuple,
-                       dtype: type, memory_block_name: str, frame_angle: float):
+                       dtype: type, memory_block_name: str, frame_angle: float) -> np.ndarray:
     image_mem = sm.SharedMemory(name=memory_block_name)
     image = np.ndarray(shape=image_shape, dtype=dtype, buffer=image_mem.buf)
     width, height, _ = image_shape
@@ -257,7 +264,8 @@ class Scan:
 
         xray_source_initial_position = (0, self.height + self.width / 2 / np.tan(cone_angle / 2))
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1] / 3
-        reference_frame_angles = np.linspace(np.pi / 2, np.pi * 3 / 2, resolution)
+        #reference_frame_angles = np.linspace(np.pi / 2, np.pi * 3 / 2, resolution)
+        reference_frame_angles = np.linspace(0, np.pi * 2, resolution)
         # Angles for rotating the source-detector reference frame
         image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
         image_shared_copy = np.ndarray(self.image.shape, dtype=self.image.dtype, buffer=image_memory_shared.buf)

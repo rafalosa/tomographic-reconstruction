@@ -12,6 +12,7 @@ if __name__ == '__main__':
     scan_obj.loadSinogram(img_path)
     #scan_obj.generateSinogram(250,250,8)
     #scan_obj.fanBeamSinogram(301,200,60,4)
+    #plt.imshow(scan_obj.sinogram,cmap='gray')
     #scan_obj.generateSinogram(301,200,8)
     #fourier,recon = scan_obj.fourierReconstruction()
     recon,filt = scan_obj.backProjectionReconstruction(180,filter_function=None)
