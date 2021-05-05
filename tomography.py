@@ -17,6 +17,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 """
 
+
 # todo: Implement other reconstruction techniques.
 # todo: Check for correct sinogram orientation in loadSinogram.
 # todo: Crop/pad loaded image so it is square.
@@ -24,7 +25,7 @@ http://ncbj.edu.pl/zasoby/wyklady/ld_podst_fiz_med_nukl-01/med_nukl_10_v3.pdf - 
 
 
 class FilterFunctionError(Exception):
-    def __init__(self,message='Filter function error.'):
+    def __init__(self, message='Filter function error.'):
         self.message = message
         super().__init__(message)
 
@@ -36,7 +37,7 @@ def rotate(vector: Union[np.ndarray, tuple], angle: float) -> np.ndarray:
     return np.dot(rot_matrix, vector)
 
 
-def generateFilter(data_length,filter_function:Union[Callable,str],cutoff) -> np.ndarray:
+def generateFilter(data_length, filter_function: Union[Callable, str], cutoff) -> np.ndarray:
     '''Function responsible for generating a filter in the Fourier domain. Filter can be defined as str:
      'ramp','cosine','shepp-logan' which are the most common. Filter can be also defined as a custom function
      in which case the standard ramp filter is multiplied by the function's result. The function requires 2
@@ -45,36 +46,37 @@ def generateFilter(data_length,filter_function:Union[Callable,str],cutoff) -> np
     spatial_domain = np.array(range(data_length))
     ramp_spatial = [0 if n % 2 == 0 and n != 0 else .25 if n == 0.0 else -1 / (n * np.pi) ** 2
                     for n in spatial_domain - data_length // 2]
-    freq_filter = 2*np.abs(scipy.fft.fftshift(scipy.fft.fft(ramp_spatial)))
+    freq_filter = 2 * np.abs(scipy.fft.fftshift(scipy.fft.fft(ramp_spatial)))
     freq_domain = np.linspace(-np.pi, np.pi, data_length)
 
     if filter_function == 'ramp':
-        def filter_function(*args): return 1
+        def filter_function(*args):
+            return 1
 
     elif filter_function == 'cosine':
-        def filter_function(*args): return np.abs(np.cos(args[0]/2/args[1]))
+        def filter_function(*args):
+            return np.abs(np.cos(args[0] / 2 / args[1]))
 
     elif filter_function == 'shepp-logan':
-        def filter_function(*args): return np.abs(np.sin(args[0] / 2 / args[1])/args[0]/2/args[1])
+        def filter_function(*args):
+            return np.abs(np.sin(args[0] / 2 / args[1]) / args[0] / 2 / args[1])
 
     elif type(filter_function) == str:
         raise FilterFunctionError("No filter defined as " + filter_function)
 
     elif callable(filter_function):
         try:
-            filter_function(freq_domain[(freq_domain != 0)],cutoff)
-        except (TypeError,IndexError):
+            filter_function(freq_domain[(freq_domain != 0)], cutoff)
+        except (TypeError, IndexError):
             raise FilterFunctionError("Filter function takes only 2 parameters.")
 
     else:
         raise FilterFunctionError("filter_function takes only str or callable parameter.")
 
-    freq_filter[freq_domain != 0] *= filter_function(freq_domain[(freq_domain != 0)],cutoff)
+    freq_filter[freq_domain != 0] *= filter_function(freq_domain[(freq_domain != 0)], cutoff)
 
-    freq_filter = np.array([0 if np.abs(arg) > np.pi*cutoff or arg == 0
-                            else val for arg,val in zip(freq_domain,freq_filter)])
-    plt.plot(freq_filter)
-    plt.show()
+    freq_filter = np.array([0 if np.abs(arg) > np.pi * cutoff or arg == 0
+                            else val for arg, val in zip(freq_domain, freq_filter)])
 
     return freq_filter
 
@@ -128,7 +130,7 @@ def evaluateForParallelRays(lines_t_size: int, lines_s_size: int, image_shape: t
     return sinogram_row
 
 
-def padMatrix(matrix: np.ndarray, new_size: Tuple[int, int], pad_color: float):
+def padMatrix(matrix: np.ndarray, new_size: Tuple[int, int], pad_color: float) -> np.ndarray:
     new_matrix = np.ones(new_size) * pad_color
     if len(matrix) == 2:
         width, height = matrix.shape
@@ -264,7 +266,7 @@ class Scan:
 
         xray_source_initial_position = (0, self.height + self.width / 2 / np.tan(cone_angle / 2))
         xray_radius = self.height * np.sqrt(2) + xray_source_initial_position[1] / 3
-        #reference_frame_angles = np.linspace(np.pi / 2, np.pi * 3 / 2, resolution)
+        # reference_frame_angles = np.linspace(np.pi / 2, np.pi * 3 / 2, resolution)
         reference_frame_angles = np.linspace(0, np.pi * 2, resolution)
         # Angles for rotating the source-detector reference frame
         image_memory_shared = sm.SharedMemory(create=True, size=self.image.nbytes)
@@ -348,8 +350,8 @@ class Scan:
 
         return interpolated_radial_fft, reconstruction
 
-    def backProjectionReconstruction(self,angle,filter_function:Union[Callable,None,str] = 'ramp',filter_cutoff=1)\
-            -> Tuple[np.ndarray,np.ndarray]:
+    def backProjectionReconstruction(self, angle, filter_function: Union[Callable, None, str] = 'ramp', filter_cutoff=1) \
+            -> Tuple[np.ndarray, np.ndarray]:
         '''Method for reconstructing an image using the filtered back projection algorithm. angle defines
          the max. angle at which the sinogram has been recorded. Filter can be defined via filter_function
           as one of following strings:'ramp','cosine','shepp-logan' which are commonly used when dealing with FBP.
@@ -365,19 +367,18 @@ class Scan:
 
         if filter_function is not None:
             self._filter = generateFilter(reconstruction_size[0],
-                                          filter_function=filter_function,cutoff=filter_cutoff)
+                                          filter_function=filter_function, cutoff=filter_cutoff)
         else:
             self._filter = 1
 
-        for ind,(ang, values) in enumerate(zip(angles, self.sinogram)):
-
+        for ind, (ang, values) in enumerate(zip(angles, self.sinogram)):
             extended_projection = np.zeros(reconstruction_size[0])
-            extended_projection[offset:offset+len(values)] = values-min(values)
+            extended_projection[offset:offset + len(values)] = values - min(values)
             extended_projection_freq = scipy.fft.fftshift(scipy.fft.fft(extended_projection))
 
-            projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter*extended_projection_freq)))
+            projection = np.real(scipy.fft.ifft(scipy.fft.ifftshift(self._filter * extended_projection_freq)))
             back_projection = np.tile(projection / reconstruction_size[0], (len(projection), 1))
             rot_img = ndimage.rotate(back_projection, ang, cval=np.amin(back_projection), reshape=False)
             reconstruction += cropCenterMatrix(rot_img, sample_tile.shape)
 
-        return reconstruction,self._filter
+        return reconstruction, self._filter
