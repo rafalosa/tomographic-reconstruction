@@ -320,7 +320,7 @@ class Scan:
         if self.sinogram is None:
             raise RuntimeError("Generate or load a sinogram before attempting a reconstruction.")
 
-        fft_sinogram = scipy.fft.fftshift(scipy.fft(scipy.fft.ifftshift(self.sinogram, axes=1)), axes=1)
+        fft_sinogram = scipy.fft.fftshift(scipy.fft.fft(scipy.fft.ifftshift(self.sinogram, axes=1)), axes=1)
         fourier_size = fft_sinogram.shape[0]
         fourier_radius = len(fft_sinogram[0]) / 2
         transformed_to_radial = []
