@@ -1,4 +1,4 @@
-import tomography
+from tomography import Scan
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.image as mpimg
@@ -6,11 +6,11 @@ import matplotlib.image as mpimg
 if __name__ == '__main__':
     img_path = "images/objects/sample5.png"
     image = mpimg.imread(img_path)
-    scan_obj = tomography.Scan()
-    scan_obj.loadImage(img_path)
-    scan_obj.generateSinogram(201, 200, 4)  # <- adjust the number of available processes if the program crashes.
-    fourier, fourier_recon = scan_obj.fourierReconstruction()
-    fbp_recon, filt = scan_obj.backProjectionReconstruction(180, filter_function='cosine')
+    scan_obj = Scan()
+    scan_obj.load_image(img_path)
+    scan_obj.generate_sinogram(201, 200)  # <- adjust the number of available processes if the program crashes.
+    fourier, fourier_recon = scan_obj.fourier_reconstruction()
+    fbp_recon, filt = scan_obj.fbp_reconstruction(180, filter_function='cosine')
     fig, axs = plt.subplots(2, 3)
     axs[0, 0].imshow(image)
     axs[0, 0].set_title('Original image')
